@@ -1,4 +1,4 @@
-# 📈 Bitcoin Price Forecaster — Hybrid LSTM-XGBoost
+# Bitcoin Price Forecaster — Hybrid LSTM-XGBoost
 
 Sistem Pendukung Keputusan (*Decision Support System*/DSS) berbasis web untuk **peramalan harga Bitcoin (BTC/IDR)**. Proyek ini membandingkan tiga skema pemodelan deret waktu — **LSTM**, **XGBoost**, dan **Hybrid LSTM-XGBoost (Residual-Correction Stacking)** — menggunakan strategi **Direct Multi-Step Forecasting** untuk horizon 1, 3, dan 7 hari ke depan.
 
@@ -11,7 +11,7 @@ Repositori ini merupakan implementasi teknis dari Tugas Akhir:
 
 ---
 
-## ✨ Fitur Utama
+## Fitur Utama
 
 - **Perbandingan 3 model** — LSTM (*base-learner*), XGBoost (*single* & *meta-learner*), dan Hybrid Stacking dalam satu dashboard.
 - **Direct Multi-Step Forecasting** — model dilatih secara independen untuk tiap horizon (1, 3, 7 hari) guna menghindari akumulasi kesalahan (*error propagation*) khas pendekatan rekursif.
@@ -23,7 +23,7 @@ Repositori ini merupakan implementasi teknis dari Tugas Akhir:
 
 ---
 
-## 🧠 Ringkasan Metodologi
+## Ringkasan Metodologi
 
 | Tahap | Deskripsi |
 |---|---|
@@ -51,7 +51,7 @@ Detail lengkap perhitungan, simulasi manual, dan pembahasan tersedia pada lapora
 
 ---
 
-## ⚙️ Struktur Direktori
+## Struktur Direktori
 
 ```text
 bitcoin-prediction-lstm-xgboost/
@@ -80,7 +80,7 @@ bitcoin-prediction-lstm-xgboost/
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Komponen | Teknologi | Fungsi |
 |---|---|---|
@@ -95,9 +95,9 @@ bitcoin-prediction-lstm-xgboost/
 
 ---
 
-## 🚀 Cara Menjalankan Aplikasi
+## Cara Menjalankan Aplikasi
 
-### 1️⃣ Backend (Flask API via Docker)
+### 1. Backend (Flask API via Docker)
 
 Pastikan **Docker Desktop** sudah berjalan.
 
@@ -115,7 +115,7 @@ Backend akan aktif di `http://localhost:5000`.
 
 > Alternatif tanpa Docker: `pip install -r requirements.txt` lalu `python api.py` (disarankan menggunakan *virtual environment* Python 3.10+).
 
-### 2️⃣ (Opsional) Melatih ulang model
+### 2. (Opsional) Melatih ulang model
 
 ```bash
 cd backend
@@ -124,7 +124,7 @@ python train.py
 
 Script ini akan menghasilkan model LSTM, XGBoost, dan Hybrid untuk horizon 1, 3, dan 7 hari, disimpan ke folder `backend/models/`.
 
-### 3️⃣ Frontend (React Dashboard)
+### 3. Frontend (React Dashboard)
 
 Gunakan terminal baru. Pastikan **Node.js** sudah terpasang.
 
@@ -136,7 +136,7 @@ npm run dev
 
 Akses dashboard di `http://localhost:5173`.
 
-### 4️⃣ Menggunakan Dashboard
+### 4. Menggunakan Dashboard
 
 1. Unggah **CSV data latih** dan **CSV data uji** pada panel *upload* (format kolom mengikuti data CoinMarketCap: `Tanggal`/`Date`, `Buka*`/`Open`, `Tutup**`/`Close`).
 2. Pilih tab model (**XGBoost**, **LSTM**, atau **Hybrid**) lalu klik **Run Prediction** untuk melihat proyeksi 1, 3, dan 7 hari ke depan beserta grafiknya.
@@ -144,7 +144,7 @@ Akses dashboard di `http://localhost:5173`.
 
 ---
 
-## 📊 Metrik Evaluasi
+## Metrik Evaluasi
 
 - **RMSE** (*Root Mean Squared Error*) — memberi bobot lebih besar pada kesalahan bernilai besar (*outliers*).
 - **MAE** (*Mean Absolute Error*) — rata-rata besaran kesalahan absolut.
@@ -152,13 +152,13 @@ Akses dashboard di `http://localhost:5173`.
 
 ---
 
-## 📚 Publikasi
+## Publikasi
 
 Hasil penelitian ini telah disubmit ke **Scientific Journal of Informatics** (Universitas Negeri Semarang) dengan judul *"Comparative Study of LSTM, XGBoost, and Hybrid Models for Bitcoin Price Forecasting"*. Bukti publikasi dapat dilihat pada lampiran laporan Tugas Akhir.
 
 ---
 
-## 👨‍💻 Penulis
+## Penulis
 
 **Sapar Hidayat. S** — NIM 2201020003
 Program Studi Teknik Informatika
