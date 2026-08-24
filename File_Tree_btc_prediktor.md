@@ -1,29 +1,17 @@
 # File Tree: btc_predictorv2
 
-**Generated:** 5/14/2026, 3:58:42 AM
+**Generated:** 8/24/2026, 10:10:52 PM
 **Root Path:** `c:\Users\ASUS\OneDrive\Desktop\btc_predictorv2`
 
 ```
 ├── 📁 backend
 │   ├── 📁 data
-│   │   ├── 📁 Data
-│   │   │   ├── 📄 Data Bitcoin Bersih.csv
-│   │   │   ├── 📄 Dataset 2020-2026.csv
-│   │   │   ├── 📄 Dataset 2021-2025.csv
-│   │   │   └── 📄 Dataset Kotor 2020-2026.csv
 │   │   ├── 📄 Data Testing 2026.csv
 │   │   └── 📄 Data Training 2020 - 2025.csv
 │   ├── 📁 models
-│   │   ├── 📄 lstm_model_h1.keras
-│   │   ├── 📄 lstm_model_h3.keras
-│   │   ├── 📄 lstm_model_h7.keras
-│   │   ├── ⚙️ metrics_lstm.json
-│   │   ├── ⚙️ metrics_xgboost.json
-│   │   ├── 📄 scaler.pkl
-│   │   ├── ⚙️ xgb_model_h1.json
-│   │   ├── ⚙️ xgb_model_h3.json
-│   │   └── ⚙️ xgb_model_h7.json
 │   ├── 📁 uploads
+│   │   ├── 📄 test_Data Testing 2026.csv
+│   │   └── 📄 train_Data Training 2020 - 2025.csv
 │   ├── 📁 utils
 │   │   ├── 🐍 __init__.py
 │   │   ├── 🐍 preprocessing.py
@@ -32,6 +20,12 @@
 │   ├── 🐍 api.py
 │   ├── 📄 requirements.txt
 │   └── 🐍 train.py
+├── 📁 docs
+│   ├── 🖼️ Dashboard.png
+│   ├── 🖼️ Evaluation.png
+│   ├── 🖼️ Hybrid.png
+│   ├── 🖼️ XGBoost.png
+│   └── 🖼️ lstm.png
 ├── 📁 frontend
 │   ├── 📁 public
 │   │   └── 🖼️ vite.svg
@@ -46,11 +40,13 @@
 │   ├── 📝 README.md
 │   ├── 📄 eslint.config.js
 │   ├── 🌐 index.html
+│   ├── ⚙️ jsconfig.json
 │   ├── ⚙️ package-lock.json
 │   ├── ⚙️ package.json
 │   └── 📄 vite.config.js
-├── 📝 README.md
-└── 📝 Struktur Direktori.md
+├── ⚙️ .gitignore
+├── 📝 File_Tree_btc_prediktor.md
+└── 📝 README.md
 ```
 
 ---

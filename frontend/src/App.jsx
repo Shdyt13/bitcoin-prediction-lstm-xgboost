@@ -27,10 +27,10 @@ import {
   Inbox, 
   History, 
   CalendarCheck,
-  FileSpreadsheet // Icon baru untuk Excel
+  FileSpreadsheet
 } from 'lucide-react';
-// Import library pembuat Excel
 import * as XLSX from 'xlsx';
+
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler, zoomPlugin);
 
@@ -70,14 +70,14 @@ function App() {
     if (!selectedFile) return;
 
     if (!selectedFile.name.toLowerCase().endsWith('.csv')) {
-      alert('Akses Ditolak: Mohon unggah dataset Training dalam format .csv!');
+      alert('Access Denied: Please upload the Training dataset in .csv format!');
       e.target.value = '';
       setFileTrain(null);
       return;
     }
 
     if (selectedFile.size > 5 * 1024 * 1024) {
-      alert('Ukuran file terlalu besar! Maksimal 5MB.');
+      alert('File is too large! Maximum allowed is 5MB.');
       e.target.value = '';
       setFileTrain(null);
       return;
@@ -92,14 +92,14 @@ function App() {
     if (!selectedFile) return;
 
     if (!selectedFile.name.toLowerCase().endsWith('.csv')) {
-      alert('Akses Ditolak: Mohon unggah dataset Testing aktual dalam format .csv!');
+      alert('Access Denied: Please upload the Testing dataset in .csv format!');
       e.target.value = '';
       setFileTest(null);
       return;
     }
 
     if (selectedFile.size > 5 * 1024 * 1024) {
-      alert('Ukuran file terlalu besar! Maksimal 5MB.');
+      alert('File is too large! Maximum allowed is 5MB.');
       e.target.value = '';
       setFileTest(null);
       return;
@@ -117,7 +117,7 @@ function App() {
 
   const handlePredict = async (algo) => {
     if (!fileTrain || !fileTest) {
-      const msg = 'Silakan upload KEDUA file (Data Training & Data Testing) terlebih dahulu!';
+      const msg = 'Please upload BOTH files (Training & Testing Data) first!';
       if (algo === 'xgboost') setErrorXGB(msg);
       else if (algo === 'lstm') setErrorLSTM(msg);
       else setErrorHybrid(msg);
@@ -148,10 +148,10 @@ function App() {
         else setErrorHybrid(response.data.message);
       }
     } catch (err) {
-      const errMsg = err.response?.data?.message || 'Gagal terhubung ke server backend AI. Pastikan Flask berjalan.';
-      if (algo === 'xgboost') setErrorXGB(`Error Backend: ${errMsg}`);
-      else if (algo === 'lstm') setErrorLSTM(`Error Backend: ${errMsg}`);
-      else setErrorHybrid(`Error Backend: ${errMsg}`);
+      const errMsg = err.response?.data?.message || 'Failed to connect to the AI backend. Please ensure the server is running.';
+      if (algo === 'xgboost') setErrorXGB(`Backend Error: ${errMsg}`);
+      else if (algo === 'lstm') setErrorLSTM(`Backend Error: ${errMsg}`);
+      else setErrorHybrid(`Backend Error: ${errMsg}`);
     } finally {
       if (algo === 'xgboost') setLoadingXGB(false);
       else if (algo === 'lstm') setLoadingLSTM(false);
@@ -160,7 +160,7 @@ function App() {
   };
 
   const handleReset = () => {
-    if(window.confirm('Apakah Anda yakin ingin menghapus semua hasil analisis dan file?')) {
+    if(window.confirm('Are you sure you want to clear all analysis results and uploaded files?')) {
       setFileTrain(null);
       setFileTest(null);
       
@@ -174,11 +174,9 @@ function App() {
     }
   };
 
-  // --- FUNGSI BARU: EXPORT KE EXCEL ---
   const handleExportExcel = () => {
     const wb = XLSX.utils.book_new();
 
-    // 1. Menyiapkan Data Metrik Evaluasi
     const metricsData = [];
     const models = [
       { name: 'XGBoost', data: resultXGB },
@@ -191,8 +189,8 @@ function App() {
         ['1', '3', '7'].forEach(h => {
           if (model.data.evaluasi[h]) {
             metricsData.push({
-              'Model Algoritma': model.name,
-              'Horizon Target (Hari)': parseInt(h),
+              'Algorithm Model': model.name,
+              'Target Horizon (Days)': parseInt(h),
               'RMSE': model.data.evaluasi[h].RMSE,
               'MAE': model.data.evaluasi[h].MAE,
               'MAPE (%)': model.data.evaluasi[h].MAPE
@@ -203,58 +201,53 @@ function App() {
     });
 
     const wsMetrics = XLSX.utils.json_to_sheet(metricsData);
-    XLSX.utils.book_append_sheet(wb, wsMetrics, "1. Metrik Evaluasi");
+    XLSX.utils.book_append_sheet(wb, wsMetrics, "1. Evaluation Metrics");
 
-    // 2. Menyiapkan Data Prediksi Masa Depan (Blind Forecast)
     const availableResult = resultHybrid || resultLSTM || resultXGB;
     if (availableResult) {
       const forecastData = [];
       availableResult.grafik.future_dates.forEach((date, index) => {
-        let row = { 'Tanggal': date };
-        if (resultXGB) row['Prediksi XGBoost (Rp)'] = resultXGB.grafik.future_prices[index];
-        if (resultLSTM) row['Prediksi LSTM (Rp)'] = resultLSTM.grafik.future_prices[index];
-        if (resultHybrid) row['Prediksi Hybrid (Rp)'] = resultHybrid.grafik.future_prices[index];
+        let row = { 'Date': date };
+        if (resultXGB) row['XGBoost Prediction (IDR)'] = resultXGB.grafik.future_prices[index];
+        if (resultLSTM) row['LSTM Prediction (IDR)'] = resultLSTM.grafik.future_prices[index];
+        if (resultHybrid) row['Hybrid Prediction (IDR)'] = resultHybrid.grafik.future_prices[index];
         forecastData.push(row);
       });
       
       const wsForecast = XLSX.utils.json_to_sheet(forecastData);
-      XLSX.utils.book_append_sheet(wb, wsForecast, "2. Prediksi Masa Depan");
+      XLSX.utils.book_append_sheet(wb, wsForecast, "2. Future Projections");
 
-      // 3. Menyiapkan Data Detail Evaluasi (Testing)
       const testingData = [];
-      const actuals = availableResult.evaluasi['1'].evaluasi_detail.actual; // Pakai referensi horizon 1
+      const actuals = availableResult.evaluasi['1'].evaluasi_detail.actual; 
       
       actuals.forEach((actualVal, index) => {
         let row = {
-          'Data Uji Ke-': index + 1,
-          'Harga Aktual (Rp)': actualVal
+          'Test Data Instance': index + 1,
+          'Actual Price (IDR)': actualVal
         };
-        // Masukkan prediksi masing-masing model jika ada
-        if (resultXGB) row['Prediksi XGBoost (Rp)'] = resultXGB.evaluasi['1'].evaluasi_detail.predicted[index];
-        if (resultLSTM) row['Prediksi LSTM (Rp)'] = resultLSTM.evaluasi['1'].evaluasi_detail.predicted[index];
-        if (resultHybrid) row['Prediksi Hybrid (Rp)'] = resultHybrid.evaluasi['1'].evaluasi_detail.predicted[index];
+        if (resultXGB) row['XGBoost Prediction (IDR)'] = resultXGB.evaluasi['1'].evaluasi_detail.predicted[index];
+        if (resultLSTM) row['LSTM Prediction (IDR)'] = resultLSTM.evaluasi['1'].evaluasi_detail.predicted[index];
+        if (resultHybrid) row['Hybrid Prediction (IDR)'] = resultHybrid.evaluasi['1'].evaluasi_detail.predicted[index];
         
-        // Hitung selisih error untuk model hybrid jika ada
         if (resultHybrid) {
-           row['Selisih Error Hybrid (Rp)'] = Math.abs(actualVal - resultHybrid.evaluasi['1'].evaluasi_detail.predicted[index]);
+           row['Hybrid Error Difference (IDR)'] = Math.abs(actualVal - resultHybrid.evaluasi['1'].evaluasi_detail.predicted[index]);
         }
-
         testingData.push(row);
       });
 
       const wsTesting = XLSX.utils.json_to_sheet(testingData);
-      XLSX.utils.book_append_sheet(wb, wsTesting, "3. Detail Pengujian (Horizon 1)");
+      XLSX.utils.book_append_sheet(wb, wsTesting, "3. Detail Testing (Horizon 1)");
     }
 
-    // Eksekusi Download File
-    XLSX.writeFile(wb, "Data_Analisis_Bitcoin.xlsx");
+    XLSX.writeFile(wb, "Bitcoin_Analysis_Data.xlsx");
   };
 
-  const formatRupiah = (angka) => {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(angka);
+  const formatIDR = (number) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(number);
   };
 
-  const chartOptionsRupiah = {
+  // Standard Line Chart Options
+  const chartOptionsIDR = {
     responsive: true,
     maintainAspectRatio: false,
     interaction: { mode: 'index', intersect: false },
@@ -270,8 +263,92 @@ function App() {
           label: function (context) {
             let label = context.dataset.label || '';
             if (label) { label += ': '; }
-            if (context.parsed.y !== null) { label += formatRupiah(context.parsed.y); }
+            if (context.parsed.y !== null) { label += formatIDR(context.parsed.y); }
             return label;
+          }
+        }
+      }
+    }
+  };
+
+  // Bar Chart Options for RMSE & MAE (Displays IDR)
+  // Bar Chart Options for RMSE & MAE (Displays IDR)
+  const barChartOptionsPrice = {
+    responsive: true,
+    maintainAspectRatio: false,
+    layout: {
+      padding: { bottom: 15 } // Memberikan ruang ekstra di bagian bawah grafik
+    },
+    scales: {
+      x: {
+        ticks: {
+          padding: 8, // Mendorong teks menjauhi garis horizontal
+          font: { size: 12 }
+        },
+        grid: { 
+          display: false // Menghilangkan garis vertikal agar grafik lebih bersih
+        }
+      },
+      y: {
+        ticks: {
+          callback: function(value) {
+            return 'IDR ' + new Intl.NumberFormat('en-US', { notation: 'compact', compactDisplay: 'short' }).format(value);
+          }
+        },
+        title: {
+          display: true,
+          text: 'Error Value (IDR)'
+        }
+      }
+    },
+    plugins: {
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            return context.dataset.label + ': IDR ' + new Intl.NumberFormat('en-US').format(context.raw);
+          }
+        }
+      }
+    }
+  };
+
+  // Bar Chart Options for MAPE (Displays % and Max 10)
+  const barChartOptionsMAPE = {
+    responsive: true,
+    maintainAspectRatio: false,
+    layout: {
+      padding: { bottom: 15 } // Memberikan ruang ekstra di bagian bawah grafik
+    },
+    scales: {
+      x: {
+        ticks: {
+          padding: 8, // Mendorong teks menjauhi garis horizontal
+          font: { size: 12 }
+        },
+        grid: { 
+          display: false // Menghilangkan garis vertikal agar grafik lebih bersih
+        }
+      },
+      y: {
+        min: 0,
+        max: 10,
+        ticks: {
+          stepSize: 2,
+          callback: function(value) {
+            return value + '%';
+          }
+        },
+        title: {
+          display: true,
+          text: 'Error Percentage (%)'
+        }
+      }
+    },
+    plugins: {
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            return context.dataset.label + ': ' + new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(context.raw) + '%';
           }
         }
       }
@@ -291,15 +368,15 @@ function App() {
     return {
       labels: allDates,
       datasets: [
-        { label: 'Harga Historis Aktual', data: dataHistorical, borderColor: COLORS.actual, backgroundColor: COLORS.actualBg, borderWidth: 2, fill: true },
-        { label: 'Proyeksi Prediksi (Forecasting)', data: dataPredicted, borderColor: colorConfig, borderDash: [5, 5], borderWidth: 2, pointBackgroundColor: colorConfig, pointRadius: 5 }
+        { label: 'Actual Historical Price', data: dataHistorical, borderColor: COLORS.actual, backgroundColor: COLORS.actualBg, borderWidth: 2, fill: true },
+        { label: 'Forecast Projection', data: dataPredicted, borderColor: colorConfig, borderDash: [5, 5], borderWidth: 2, pointBackgroundColor: colorConfig, pointRadius: 5 }
       ]
     };
   };
 
   const getBarChartData = (metric) => {
     return {
-      labels: ['1 Hari Kedepan', '3 Hari Kedepan', '7 Hari Kedepan'],
+      labels: ['1 Day Ahead', '3 Days Ahead', '7 Days Ahead'],
       datasets: [
         { label: `XGBoost`, data: resultXGB ? [resultXGB.evaluasi['1'][metric], resultXGB.evaluasi['3'][metric], resultXGB.evaluasi['7'][metric]] : [0, 0, 0], backgroundColor: COLORS.xgbBg, borderRadius: 4 },
         { label: `LSTM`, data: resultLSTM ? [resultLSTM.evaluasi['1'][metric], resultLSTM.evaluasi['3'][metric], resultLSTM.evaluasi['7'][metric]] : [0, 0, 0], backgroundColor: COLORS.lstmBg, borderRadius: 4 },
@@ -319,12 +396,12 @@ function App() {
                      : hasDetailLSTM ? resultLSTM.evaluasi[horizon].evaluasi_detail.actual 
                      : resultHybrid.evaluasi[horizon].evaluasi_detail.actual;
 
-    const labels = Array.from({ length: actualData.length }, (_, i) => `Data Uji Ke-${i + 1}`);
-    const datasets = [{ label: 'Harga Aktual (Testing Set)', data: actualData, borderColor: COLORS.actual, backgroundColor: COLORS.actualBg, borderWidth: 2, fill: true, pointRadius: 0, pointHoverRadius: 5 }];
+    const labels = Array.from({ length: actualData.length }, (_, i) => `Test Data ${i + 1}`);
+    const datasets = [{ label: 'Actual Price (Testing Set)', data: actualData, borderColor: COLORS.actual, backgroundColor: COLORS.actualBg, borderWidth: 2, fill: true, pointRadius: 0, pointHoverRadius: 5 }];
 
-    if (hasDetailXGB) datasets.push({ label: 'Prediksi XGBoost', data: resultXGB.evaluasi[horizon].evaluasi_detail.predicted, borderColor: COLORS.xgb, borderDash: [4, 4], borderWidth: 2, pointRadius: 0, pointHoverRadius: 5 });
-    if (hasDetailLSTM) datasets.push({ label: 'Prediksi LSTM', data: resultLSTM.evaluasi[horizon].evaluasi_detail.predicted, borderColor: COLORS.lstm, borderDash: [4, 4], borderWidth: 2, pointRadius: 0, pointHoverRadius: 5 });
-    if (hasDetailHybrid) datasets.push({ label: 'Prediksi Hybrid (LSTM+XGB)', data: resultHybrid.evaluasi[horizon].evaluasi_detail.predicted, borderColor: COLORS.hybrid, borderDash: [4, 4], borderWidth: 2, pointRadius: 0, pointHoverRadius: 5 });
+    if (hasDetailXGB) datasets.push({ label: 'XGBoost Prediction', data: resultXGB.evaluasi[horizon].evaluasi_detail.predicted, borderColor: COLORS.xgb, borderDash: [4, 4], borderWidth: 2, pointRadius: 0, pointHoverRadius: 5 });
+    if (hasDetailLSTM) datasets.push({ label: 'LSTM Prediction', data: resultLSTM.evaluasi[horizon].evaluasi_detail.predicted, borderColor: COLORS.lstm, borderDash: [4, 4], borderWidth: 2, pointRadius: 0, pointHoverRadius: 5 });
+    if (hasDetailHybrid) datasets.push({ label: 'Hybrid Prediction (LSTM+XGB)', data: resultHybrid.evaluasi[horizon].evaluasi_detail.predicted, borderColor: COLORS.hybrid, borderDash: [4, 4], borderWidth: 2, pointRadius: 0, pointHoverRadius: 5 });
 
     return { labels, datasets };
   };
@@ -345,27 +422,27 @@ function App() {
     else if (minMape === mapeLSTM) { winner = 'LSTM'; winnerColor = COLORS.lstm; }
     else if (minMape === mapeXGB) { winner = 'XGBoost'; winnerColor = COLORS.xgb; }
 
-    const formatNumber = (num) => num === Infinity ? '-' : new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(num);
+    const formatNumber = (num) => num === Infinity ? '-' : new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(num);
 
     return (
       <div className="card-hover" style={{ display: 'flex', gap: '20px', marginBottom: '30px' }}>
         <div style={{ flex: 1, padding: '20px', backgroundColor: '#fff', borderLeft: `6px solid ${winnerColor}`, borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <h4 style={{ margin: '0 0 5px 0', color: '#555', fontSize: '14px', textTransform: 'uppercase' }}>Juara Akurasi (Model Terbaik)</h4>
+          <h4 style={{ margin: '0 0 5px 0', color: '#555', fontSize: '14px', textTransform: 'uppercase' }}>Accuracy Champion (Best Model)</h4>
           <strong style={{ fontSize: '28px', color: winnerColor }}>{winner}</strong>
         </div>
         <div style={{ flex: 1, padding: '20px', backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #eee', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
-          <h4 style={{ margin: '0 0 10px 0', color: '#555', fontSize: '14px' }}>Rata-Rata Kesalahan (MAPE)</h4>
+          <h4 style={{ margin: '0 0 10px 0', color: '#555', fontSize: '14px' }}>Average Error (MAPE)</h4>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
             <span style={{ color: COLORS.xgb, fontWeight: 'bold' }}>XGBoost:</span>
-            <span style={{ fontWeight: 'bold' }}>{resultXGB ? `${formatNumber(mapeXGB)}%` : 'Belum dilatih'}</span>
+            <span style={{ fontWeight: 'bold' }}>{resultXGB ? `${formatNumber(mapeXGB)}%` : 'Not trained yet'}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
             <span style={{ color: COLORS.lstm, fontWeight: 'bold' }}>LSTM:</span>
-            <span style={{ fontWeight: 'bold' }}>{resultLSTM ? `${formatNumber(mapeLSTM)}%` : 'Belum dilatih'}</span>
+            <span style={{ fontWeight: 'bold' }}>{resultLSTM ? `${formatNumber(mapeLSTM)}%` : 'Not trained yet'}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ color: COLORS.hybrid, fontWeight: 'bold' }}>Hybrid:</span>
-            <span style={{ fontWeight: 'bold' }}>{resultHybrid ? `${formatNumber(mapeHybrid)}%` : 'Belum dilatih'}</span>
+            <span style={{ fontWeight: 'bold' }}>{resultHybrid ? `${formatNumber(mapeHybrid)}%` : 'Not trained yet'}</span>
           </div>
         </div>
       </div>
@@ -379,7 +456,7 @@ function App() {
           {algo === 'xgboost' && <Target size={24} color={colorBtn} />}
           {algo === 'lstm' && <BrainCircuit size={24} color={colorBtn} />}
           {algo === 'hybrid' && <Bot size={24} color={colorBtn} />}
-          Mesin Prediksi {title}
+          {title} Prediction Engine
         </h3>
         <span style={{ fontSize: '12px', padding: '5px 10px', backgroundColor: '#f0f2f5', borderRadius: '20px', color: '#666', fontWeight: 'bold' }}>{description}</span>
       </div>
@@ -394,11 +471,11 @@ function App() {
         {loading ? (
           <>
             <span style={{ width: '20px', height: '20px', border: '3px solid rgba(255,255,255,0.3)', borderTop: '3px solid white', borderRadius: '50%', display: 'inline-block', animation: 'spin 1s linear infinite' }} />
-            Sedang Memproses Model Analitik...
+            Processing Analytical Model...
           </>
         ) : (
           <>
-            <TrendingUp size={20} /> Jalankan Prediksi {title}
+            <TrendingUp size={20} /> Run {title} Prediction
           </>
         )}
       </button>
@@ -406,27 +483,27 @@ function App() {
       {result && (
         <div className="card-hover" style={{ border: '1px solid #eee', padding: '25px', borderRadius: '12px', backgroundColor: '#fafbfc' }}>
           <h4 style={{ color: '#444', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <LineChart size={20} color={colorBtn} /> Proyeksi Harga Masa Depan (Blind Forecasting)
+            <LineChart size={20} color={colorBtn} /> Future Price Projection (Blind Forecasting)
           </h4>
           <div style={{ display: 'flex', gap: '15px', marginBottom: '30px' }}>
             {[1, 3, 7].map(hari => (
               <div key={hari} style={{ flex: 1, backgroundColor: '#fff', padding: '20px', borderRadius: '10px', textAlign: 'center', border: '1px solid #e9ecef', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-                <div style={{ fontSize: '14px', color: '#888', fontWeight: '600', marginBottom: '10px', textTransform: 'uppercase' }}>Target {hari} Hari</div>
-                <div style={{ fontSize: '20px', color: colorBtn, fontWeight: 'bold' }}>{formatRupiah(result.hasil_prediksi[hari])}</div>
+                <div style={{ fontSize: '14px', color: '#888', fontWeight: '600', marginBottom: '10px', textTransform: 'uppercase' }}>{hari} Day(s) Ahead</div>
+                <div style={{ fontSize: '20px', color: colorBtn, fontWeight: 'bold' }}>{formatIDR(result.hasil_prediksi[hari])}</div>
               </div>
             ))}
           </div>
           <div style={{ height: '400px', width: '100%', padding: '15px', backgroundColor: '#fff', border: '1px solid #eee', borderRadius: '10px' }}>
-            <Line data={getChartData(result, colorBtn)} options={chartOptionsRupiah} />
+            <Line data={getChartData(result, colorBtn)} options={chartOptionsIDR} />
           </div>
           <p style={{ textAlign: 'center', fontSize: '12px', color: '#999', marginTop: '15px' }}>
-            *Grafik menyambungkan data historis bulan terakhir dengan proyeksi masa depan. <b>Gunakan scroll/pinch untuk Zoom, dan drag untuk Geser (Pan).</b>
+            *The chart connects the historical data of the last month with future projections. <b>Use scroll/pinch to Zoom, and drag to Pan.</b>
           </p>
         </div>
       )}
     </div>
   );
-  // 532E68647974
+  
   const renderEvaluasiTab = () => {
     const availableResult = resultXGB || resultLSTM || resultHybrid;
 
@@ -434,12 +511,11 @@ function App() {
       <div style={{ padding: '30px', backgroundColor: 'white', border: '1px solid #ddd', borderTop: 'none', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
           <h3 style={{ color: '#333', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <BarChart3 size={24} color={COLORS.actual} /> Evaluasi & Komparasi Model (Out-of-Sample Testing)
+            <BarChart3 size={24} color={COLORS.actual} /> Model Evaluation & Comparison (Out-of-Sample Testing)
           </h3>
-          {/* --- TOMBOL CETAK EXCEL --- */}
           {availableResult && ( 
             <button onClick={handleExportExcel} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', backgroundColor: '#107c41', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', transition: '0.2s', boxShadow: '0 2px 6px rgba(16,124,65,0.4)' }}>
-              <FileSpreadsheet size={18} /> Export ke Excel
+              <FileSpreadsheet size={18} /> Export to Excel
             </button> 
           )}
         </div>
@@ -447,56 +523,56 @@ function App() {
         {!availableResult ? (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: '#666', backgroundColor: '#f8f9fa', borderRadius: '12px', border: '2px dashed #ddd' }}>
             <Inbox size={48} color="#adb5bd" style={{ margin: '0 auto 15px auto' }} />
-            <h3 style={{ margin: '0 0 10px 0', color: '#444' }}>Belum Ada Data Evaluasi</h3>
-            <p style={{ margin: 0, fontSize: '15px' }}>Silakan jalankan prediksi di salah satu tab algoritma terlebih dahulu untuk melihat analisis komprehensif.</p>
+            <h3 style={{ margin: '0 0 10px 0', color: '#444' }}>No Evaluation Data Yet</h3>
+            <p style={{ margin: 0, fontSize: '15px' }}>Please run a prediction on one of the algorithm tabs first to view the comprehensive analysis.</p>
           </div>
         ) : (
           <div>
             {insightSummary}
-            <h4 style={{ color: '#444', borderBottom: '2px solid #f0f0f0', paddingBottom: '10px', marginBottom: '20px' }}>1. Proporsi Dataset Penelitan (Explicit Split)</h4>
+            <h4 style={{ color: '#444', borderBottom: '2px solid #f0f0f0', paddingBottom: '10px', marginBottom: '20px' }}>1. Research Dataset Proportion (Explicit Split)</h4>
             <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '40px' }}>
               <div className="card-hover" style={{ flex: 1, backgroundColor: '#fff', padding: '20px', borderRadius: '10px', border: '1px solid #b8daff', textAlign: 'center', boxShadow: '0 2px 8px rgba(41,128,185,0.1)' }}>
-                <span style={{ fontSize: '13px', color: COLORS.actual, display: 'block', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>Data Training (Pembelajaran)</span>
-                <strong style={{ fontSize: '26px', color: COLORS.actual }}>{availableResult.info_data.data_training_mentah} Baris</strong>
-                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>({availableResult.info_data.sekuens_training} Sekuens Fit)</div>
+                <span style={{ fontSize: '13px', color: COLORS.actual, display: 'block', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>Training Data (Learning)</span>
+                <strong style={{ fontSize: '26px', color: COLORS.actual }}>{availableResult.info_data.data_training_mentah} Rows</strong>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>({availableResult.info_data.sekuens_training} Fit Sequences)</div>
               </div>
               <div className="card-hover" style={{ flex: 1, backgroundColor: '#fff', padding: '20px', borderRadius: '10px', border: '1px solid #f5c2c7', textAlign: 'center', boxShadow: '0 2px 8px rgba(231,76,60,0.1)' }}>
-                <span style={{ fontSize: '13px', color: COLORS.xgb, display: 'block', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>Data Testing (Ujian)</span>
-                <strong style={{ fontSize: '26px', color: COLORS.xgb }}>{availableResult.info_data.data_testing_mentah} Baris</strong>
-                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>({availableResult.info_data.sekuens_testing} Sekuens Uji)</div>
+                <span style={{ fontSize: '13px', color: COLORS.xgb, display: 'block', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>Testing Data (Evaluation)</span>
+                <strong style={{ fontSize: '26px', color: COLORS.xgb }}>{availableResult.info_data.data_testing_mentah} Rows</strong>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>({availableResult.info_data.sekuens_testing} Test Sequences)</div>
               </div>
             </div>
 
-            <h4 style={{ color: '#444', borderBottom: '2px solid #f0f0f0', paddingBottom: '10px', marginBottom: '20px' }}>2. Visualisasi Prediksi vs Aktual (Data Testing)</h4>
+            <h4 style={{ color: '#444', borderBottom: '2px solid #f0f0f0', paddingBottom: '10px', marginBottom: '20px' }}>2. Prediction vs. Actual Visualization (Testing Data)</h4>
             <div className="card-hover" style={{ marginBottom: '40px', padding: '25px', border: '1px solid #e9ecef', borderRadius: '12px', backgroundColor: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <span style={{ fontSize: '15px', color: '#555', fontWeight: '600' }}>Tinjauan Horizon Target:</span>
+                <span style={{ fontSize: '15px', color: '#555', fontWeight: '600' }}>Target Horizon Review:</span>
                 <select value={evalHorizon} onChange={(e) => setEvalHorizon(e.target.value)} style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #ccc', fontWeight: 'bold', outline: 'none', cursor: 'pointer', backgroundColor: '#f8f9fa' }}>
-                  <option value="1">1 Hari Kedepan</option>
-                  <option value="3">3 Hari Kedepan</option>
-                  <option value="7">7 Hari Kedepan</option>
+                  <option value="1">1 Day Ahead</option>
+                  <option value="3">3 Days Ahead</option>
+                  <option value="7">7 Days Ahead</option>
                 </select>
               </div>
               {getLineComparasiData(evalHorizon) ? (
-                <div style={{ height: '380px', width: '100%' }}><Line data={getLineComparasiData(evalHorizon)} options={chartOptionsRupiah} /></div>
+                <div style={{ height: '380px', width: '100%' }}><Line data={getLineComparasiData(evalHorizon)} options={chartOptionsIDR} /></div>
               ) : (
-                <div style={{ textAlign: 'center', padding: '40px', color: '#888', fontStyle: 'italic', backgroundColor: '#fdfdfd', borderRadius: '8px', border: '1px dashed #ddd' }}>Menunggu ekstraksi data evaluasi detail.</div>
+                <div style={{ textAlign: 'center', padding: '40px', color: '#888', fontStyle: 'italic', backgroundColor: '#fdfdfd', borderRadius: '8px', border: '1px dashed #ddd' }}>Waiting for detailed evaluation data extraction.</div>
               )}
             </div>
 
-            <h4 style={{ color: '#444', borderBottom: '2px solid #f0f0f0', paddingBottom: '10px', marginBottom: '20px' }}>3. Rekapitulasi Metrik Kesalahan (Error)</h4>
+            <h4 style={{ color: '#444', borderBottom: '2px solid #f0f0f0', paddingBottom: '10px', marginBottom: '20px' }}>3. Error Metrics Recapitulation</h4>
             <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
               <div className="card-hover" style={{ flex: '1 1 30%', height: '320px', backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #e9ecef', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
                 <h4 style={{ textAlign: 'center', margin: '0 0 15px 0', color: '#555' }}>RMSE (Root Mean Squared Error)</h4>
-                <Bar data={getBarChartData('RMSE')} options={chartOptionsRupiah} />
+                <Bar data={getBarChartData('RMSE')} options={barChartOptionsPrice} />
               </div>
               <div className="card-hover" style={{ flex: '1 1 30%', height: '320px', backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #e9ecef', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
                 <h4 style={{ textAlign: 'center', margin: '0 0 15px 0', color: '#555' }}>MAE (Mean Absolute Error)</h4>
-                <Bar data={getBarChartData('MAE')} options={chartOptionsRupiah} />
+                <Bar data={getBarChartData('MAE')} options={barChartOptionsPrice} />
               </div>
               <div className="card-hover" style={{ flex: '1 1 30%', height: '320px', backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #e9ecef', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-                <h4 style={{ textAlign: 'center', margin: '0 0 15px 0', color: '#555' }}>MAPE (Persentase Kesalahan)</h4>
-                <Bar data={getBarChartData('MAPE')} options={{ responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(ctx.raw)}%` } } } }} />
+                <h4 style={{ textAlign: 'center', margin: '0 0 15px 0', color: '#555' }}>MAPE (Mean Absolute Percentage Error)</h4>
+                <Bar data={getBarChartData('MAPE')} options={barChartOptionsMAPE} />
               </div>
             </div>
           </div>
@@ -526,7 +602,7 @@ function App() {
           )}
           
           <h2 style={{ textAlign: 'center', color: '#1a1a1a', margin: '0 0 8px 0', fontSize: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-            <LineChart size={32} color="#0d6efd" /> Dashboard Analisis Time-Series Bitcoin
+            <LineChart size={32} color="#0d6efd" /> Bitcoin Time-Series Analysis Dashboard
           </h2>
           <p style={{ textAlign: 'center', color: '#7f8c8d', fontSize: '16px', margin: '0 0 25px 0', fontWeight: '500' }}>Sapar Hidayat. S (2201020003)</p>
           
@@ -534,9 +610,9 @@ function App() {
             {/* Input Data Training */}
             <div style={{ flex: 1, backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '10px', border: '2px dashed #6ea8fe' }}>
               <label style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', color: '#0d6efd', fontSize: '15px' }}>
-                <History size={20} /> 1. Upload CSV Historis (Data Training)
+                <History size={20} /> 1. Upload Historical CSV (Training Data)
               </label>
-              <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#6c757d' }}>Data Bitcoin 1 Jan 2020 - 31 Des 2025.</p>
+              <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#6c757d' }}>Bitcoin Data Jan 1, 2020 - Dec 31, 2025.</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <Upload size={18} color="#0d6efd" />
                 <input id="input-train" type="file" accept=".csv" onChange={handleFileTrainChange} disabled={isTabDisabled} style={{ flex: 1, padding: '10px', backgroundColor: '#fff', border: '1px solid #ced4da', borderRadius: '6px', cursor: isTabDisabled ? 'not-allowed' : 'pointer', fontSize: '14px' }} />
@@ -546,9 +622,9 @@ function App() {
             {/* Input Data Testing */}
             <div style={{ flex: 1, backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '10px', border: '2px dashed #f5c2c7' }}>
               <label style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', color: '#dc3545', fontSize: '15px' }}>
-                <CalendarCheck size={20} /> 2. Upload CSV Aktual (Data Testing)
+                <CalendarCheck size={20} /> 2. Upload Actual CSV (Testing Data)
               </label>
-              <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#6c757d' }}>Data Bitcoin 1 Jan 2026 - Sekarang.</p>
+              <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#6c757d' }}>Bitcoin Data Jan 1, 2026 - Present.</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <Upload size={18} color="#dc3545" />
                 <input id="input-test" type="file" accept=".csv" onChange={handleFileTestChange} disabled={isTabDisabled} style={{ flex: 1, padding: '10px', backgroundColor: '#fff', border: '1px solid #ced4da', borderRadius: '6px', cursor: isTabDisabled ? 'not-allowed' : 'pointer', fontSize: '14px' }} />
@@ -560,16 +636,16 @@ function App() {
         {/* Navigasi Tab */}
         <div style={{ display: 'flex', opacity: isTabDisabled ? 0.6 : 1, pointerEvents: isTabDisabled ? 'none' : 'auto', gap: '5px', marginBottom: '-1px', zIndex: 1, position: 'relative' }}>
           <button onClick={() => setActiveTab('xgboost')} style={{ flex: 1, padding: '16px', background: activeTab === 'xgboost' ? 'white' : '#e9ecef', color: activeTab === 'xgboost' ? COLORS.xgb : '#6c757d', border: '1px solid #ddd', borderBottom: activeTab === 'xgboost' ? 'none' : '1px solid #ddd', borderTopLeftRadius: '12px', borderTopRightRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', transition: '0.2s', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-            <Target size={20} /> Prediksi XGBoost
+            <Target size={20} /> XGBoost Prediction
           </button>
           <button onClick={() => setActiveTab('lstm')} style={{ flex: 1, padding: '16px', background: activeTab === 'lstm' ? 'white' : '#e9ecef', color: activeTab === 'lstm' ? COLORS.lstm : '#6c757d', border: '1px solid #ddd', borderBottom: activeTab === 'lstm' ? 'none' : '1px solid #ddd', borderTopLeftRadius: '12px', borderTopRightRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', transition: '0.2s', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-            <BrainCircuit size={20} /> Prediksi LSTM
+            <BrainCircuit size={20} /> LSTM Prediction
           </button>
           <button onClick={() => setActiveTab('hybrid')} style={{ flex: 1, padding: '16px', background: activeTab === 'hybrid' ? 'white' : '#e9ecef', color: activeTab === 'hybrid' ? COLORS.hybrid : '#6c757d', border: '1px solid #ddd', borderBottom: activeTab === 'hybrid' ? 'none' : '1px solid #ddd', borderTopLeftRadius: '12px', borderTopRightRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', transition: '0.2s', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-            <Bot size={20} /> Prediksi Hybrid
+            <Bot size={20} /> Hybrid Prediction
           </button>
           <button onClick={() => setActiveTab('evaluasi')} style={{ flex: 1, padding: '16px', background: activeTab === 'evaluasi' ? 'white' : '#e9ecef', color: activeTab === 'evaluasi' ? COLORS.actual : '#6c757d', border: '1px solid #ddd', borderBottom: activeTab === 'evaluasi' ? 'none' : '1px solid #ddd', borderTopLeftRadius: '12px', borderTopRightRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', transition: '0.2s', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-            <BarChart3 size={20} /> Komparasi Model
+            <BarChart3 size={20} /> Model Comparison
           </button>
         </div>
 
