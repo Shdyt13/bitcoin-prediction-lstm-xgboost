@@ -1,14 +1,9 @@
+# ---------------------------------------------------------
+# Copyright (c) Shdyt13
+# ---------------------------------------------------------
 """
 Flask API for Bitcoin price forecasting.
-
-Exposes POST /api/predict, which accepts a training and a testing CSV
-upload plus an `algorithm` field ('xgboost', 'lstm', or 'hybrid'), trains
-the requested model for three forecast horizons (1, 3, 7 days), evaluates
-it on the uploaded test split, and returns predictions, evaluation
-metrics, and chart-ready data as JSON.
-
-Run directly:
-    python api.py
+Endpoint: POST /api/predict
 """
 
 import functools
@@ -34,8 +29,6 @@ from utils.model_utils import (
 from utils.preprocessing import clean_bitcoin_data
 from utils.windowing import create_sequences
 
-# Lighter search space/training budget than train.py, to keep API response
-# times reasonable for on-demand requests.
 XGB_PARAM_GRID = {
     "n_estimators": [100, 200],
     "learning_rate": [0.05, 0.1],
@@ -79,7 +72,11 @@ def prepare_test_sequences(train_data, test_data, scaler, horizon):
 
 @app.route("/api/predict", methods=["POST"])
 def predict_api():
-    """Run model training, evaluation, and future forecasting for the requested algorithm."""
+    """API Endpoint untuk memproses prediksi harga Bitcoin."""
+    
+    # ==========================================
+    # === UPLOAD FILE ===
+    # ==========================================
     if "dataset_train" not in request.files or "dataset_test" not in request.files:
         return jsonify({
             "status": "error",
@@ -104,13 +101,16 @@ def predict_api():
         file_train.save(train_path)
         file_test.save(test_path)
 
+        # ==========================================
+        # === PRA-PEMROSESAN DATA ===
+        # ==========================================
         _, train_clean, _, _ = clean_bitcoin_data(train_path)
         test_df, test_clean, date_column, close_column = clean_bitcoin_data(test_path)
 
         train_data = train_clean.values
         test_data = test_clean.values
 
-        # Fit scaler using training data only.
+        # Skala data (Normalisasi Min-Max) menggunakan data latih
         scaler = MinMaxScaler(feature_range=(0, 1))
         scaler.fit(train_data)
         scaled_train = scaler.transform(train_data)
@@ -123,7 +123,11 @@ def predict_api():
 
         last_test_date = test_df[date_column].iloc[-1]
 
+        # ==========================================
+        # === TRAINING MODEL & PREDIKSI ===
+        # ==========================================
         for horizon in FORECAST_HORIZONS:
+            # Membentuk sekuens Sliding Window
             X_train, y_train = create_sequences(
                 scaled_train, WINDOW_SIZE, horizon, target_col_index=CLOSE_COL_INDEX
             )
@@ -138,14 +142,16 @@ def predict_api():
                     "sekuens_testing": len(X_test),
                 }
 
-            # Latest window used for forecasting beyond the test set.
+            # Data historis terbaru untuk prediksi ke masa depan
             future_input_raw = test_data[-WINDOW_SIZE:]
             future_input = scaler.transform(future_input_raw)
 
+            # Menjalankan Algoritma Terpilih (LSTM, XGBoost, atau Hybrid)
             _, y_pred_test_scaled, future_prediction_scaled = run_algorithm(
                 X_train, y_train, X_test, future_input
             )
 
+            # Denormalisasi untuk mendapatkan hasil pada rentang harga aktual
             y_test_actual = inverse_transform_close(scaler, y_test)
             y_pred_test_actual = inverse_transform_close(scaler, y_pred_test_scaled)
             evaluations[str(horizon)] = evaluate_predictions(y_test_actual, y_pred_test_actual)
@@ -158,7 +164,7 @@ def predict_api():
             future_dates.append((last_test_date + pd.Timedelta(days=horizon)).strftime("%d %b %Y"))
             future_prices.append(future_prediction)
 
-        # Latest 30 test observations, for the history/forecast chart.
+        # Menyiapkan data 30 hari terakhir untuk keperluan visualisasi grafik
         latest_data = test_df.tail(30)
         history_dates = latest_data[date_column].dt.strftime("%d %b %Y").tolist()
         history_prices = latest_data[close_column].tolist()

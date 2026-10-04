@@ -1,14 +1,8 @@
+# ---------------------------------------------------------
+# Copyright (c) Shdyt13
+# ---------------------------------------------------------
 """
 Offline training script for the Bitcoin price forecasting models.
-
-Trains three models (XGBoost, LSTM, and a Hybrid LSTM+XGBoost residual
-corrector) for three forecast horizons (1, 3, and 7 days) using a
-manually split training and testing dataset (two separate CSV files),
-evaluates each on the test data, and persists the trained models,
-scaler, and evaluation metrics to the `models/` directory.
-
-Usage:
-    python train.py --train data/train.csv --test data/test.csv
 """
 
 import argparse
@@ -37,7 +31,6 @@ from utils.windowing import create_sequences
 
 MODELS_DIR = "models"
 
-# Wider search space/training budget than api.py, since this runs offline.
 XGB_PARAM_GRID = {
     "n_estimators": [100, 200, 300],
     "learning_rate": [0.01, 0.05, 0.1],
@@ -80,7 +73,6 @@ def prepare_test_sequences(train_data, test_data, scaler, horizon):
 
 
 def _save_json_atomic(payload, path):
-    """Write JSON to `path` via a temp file + rename, so a crash mid-write can't corrupt it."""
     directory = os.path.dirname(path) or "."
     fd, tmp_path = tempfile.mkstemp(dir=directory, suffix=".tmp")
     try:
@@ -105,7 +97,9 @@ def train_models(train_path, test_path, models_dir=MODELS_DIR):
 
     os.makedirs(models_dir, exist_ok=True)
 
-    # 1. Load and clean both manually split datasets.
+    # ==========================================
+    # === PRA-PEMROSESAN DATA ===
+    # ==========================================
     logger.info("Membaca dan membersihkan dataset...")
     try:
         _, train_clean, _, _ = clean_bitcoin_data(train_path)
@@ -117,8 +111,7 @@ def train_models(train_path, test_path, models_dir=MODELS_DIR):
     train_data = train_clean.values
     test_data = test_clean.values
 
-    # 2. Fit the scaler on training data only, then persist it for inference.
-    logger.info("Melakukan scaling dan menyimpan scaler...")
+    logger.info("Melakukan scaling (Min-Max) dan menyimpan scaler...")
     scaler = MinMaxScaler(feature_range=(0, 1))
     scaler.fit(train_data)
     joblib.dump(scaler, os.path.join(models_dir, "scaler.pkl"))
@@ -128,10 +121,14 @@ def train_models(train_path, test_path, models_dir=MODELS_DIR):
     eval_xgb, eval_lstm, eval_hybrid = {}, {}, {}
     info_data = {}
 
+    # ==========================================
+    # === TRAINING MODEL (Direct Multi-Step) ===
+    # ==========================================
     for horizon in FORECAST_HORIZONS:
         logger.info("--- Memproses Target Horizon: %d Hari ---", horizon)
 
         try:
+            # Membentuk sekuens Sliding Window
             X_train, y_train = create_sequences(
                 scaled_train, WINDOW_SIZE, horizon, target_col_index=CLOSE_COL_INDEX
             )
@@ -150,10 +147,10 @@ def train_models(train_path, test_path, models_dir=MODELS_DIR):
             }
 
         y_test_actual = inverse_transform_close(scaler, y_test)
-        future_input = X_test[-1]  # last window; future value itself is unused during training
+        future_input = X_test[-1]
 
         try:
-            # XGBoost
+            # 1. XGBoost
             logger.info("Melatih XGBoost untuk horizon %d...", horizon)
             xgb_model, y_pred_xgb, _ = run_xgboost(
                 X_train, y_train, X_test, future_input, XGB_PARAM_GRID, XGB_N_ITER
@@ -163,7 +160,7 @@ def train_models(train_path, test_path, models_dir=MODELS_DIR):
                 y_test_actual, inverse_transform_close(scaler, y_pred_xgb)
             )
 
-            # LSTM
+            # 2. LSTM
             logger.info("Melatih LSTM untuk horizon %d...", horizon)
             lstm_model, y_pred_lstm, _ = run_lstm(
                 X_train, y_train, X_test, future_input, LSTM_EPOCHS, LSTM_PATIENCE
@@ -173,7 +170,7 @@ def train_models(train_path, test_path, models_dir=MODELS_DIR):
                 y_test_actual, inverse_transform_close(scaler, y_pred_lstm)
             )
 
-            # Hybrid (LSTM + XGBoost residual correction)
+            # 3. Hybrid
             logger.info("Melatih Hybrid (Residual Correction) untuk horizon %d...", horizon)
             (_, hybrid_xgb), y_pred_hybrid, _ = run_hybrid(
                 X_train, y_train, X_test, future_input,
@@ -187,11 +184,9 @@ def train_models(train_path, test_path, models_dir=MODELS_DIR):
             logger.exception("Training gagal pada horizon %d", horizon)
             continue
 
-    # Persist evaluation metrics, one JSON file per algorithm.
     logger.info("Menyimpan semua hasil evaluasi...")
     for name, evaluasi in (("xgboost", eval_xgb), ("lstm", eval_lstm), ("hybrid", eval_hybrid)):
         if not evaluasi:
-            logger.warning("Tidak ada hasil evaluasi untuk '%s', file metrik dilewati.", name)
             continue
         _save_json_atomic(
             {"evaluasi": evaluasi, "info_data": info_data},

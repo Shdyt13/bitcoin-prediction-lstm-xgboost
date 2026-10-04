@@ -1,3 +1,6 @@
+// ---------------------------------------------------------
+// Copyright (c) Shdyt13
+// ---------------------------------------------------------
 import React, { useState, useMemo } from 'react';
 import axios from 'axios';
 import {
@@ -635,3 +638,4 @@ function App() {
 }
 
 export default App;
+
