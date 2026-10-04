@@ -19,6 +19,8 @@ import { Line, Bar } from 'react-chartjs-2';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import {
   Upload,
+  Sun,
+  Moon,
   BrainCircuit,
   TrendingUp,
   Target,
@@ -37,6 +39,22 @@ import * as XLSX from 'xlsx';
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler, zoomPlugin);
 
 function App() {
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  const theme = {
+    bg: isDarkMode ? '#121212' : '#EEF2FF',
+    card: isDarkMode ? '#1E1E1E' : '#ffffff',
+    textMain: isDarkMode ? '#F5F5F5' : '#0F3460',
+    textMuted: isDarkMode ? '#A0A0A0' : '#666666',
+    border: isDarkMode ? '#333333' : '#d1d5db',
+    tabInactiveBg: isDarkMode ? '#121212' : '#EEF2FF',
+    tabActiveBg: isDarkMode ? '#1E1E1E' : '#ffffff',
+    inputBg: isDarkMode ? '#1E1E1E' : '#ffffff',
+    inputBorder: isDarkMode ? '#444444' : '#ced4da'
+  };
+
+  
+
   const [fileTrain, setFileTrain] = useState(null);
   const [fileTest, setFileTest] = useState(null);
 
@@ -406,12 +424,12 @@ function App() {
 
     return (
       <div className="card-hover" style={{ display: 'flex', gap: '20px', marginBottom: '30px' }}>
-        <div style={{ flex: 1, padding: '20px', backgroundColor: '#fff', borderLeft: `6px solid ${winnerColor}`, borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <h4 style={{ margin: '0 0 5px 0', color: '#555', fontSize: '14px', textTransform: 'uppercase' }}>Accuracy Champion (Best Model)</h4>
+        <div style={{ flex: 1, padding: '20px', backgroundColor: theme.card, borderLeft: `6px solid ${winnerColor}`, borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <h4 style={{ margin: '0 0 5px 0', color: theme.textMain, fontSize: '14px', textTransform: 'uppercase' }}>Accuracy Champion (Best Model)</h4>
           <strong style={{ fontSize: '28px', color: winnerColor }}>{winner}</strong>
         </div>
-        <div style={{ flex: 1, padding: '20px', backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #eee', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
-          <h4 style={{ margin: '0 0 10px 0', color: '#555', fontSize: '14px' }}>Average Error (MAPE)</h4>
+        <div style={{ flex: 1, padding: '20px', backgroundColor: theme.card, borderRadius: '8px', border: `1px solid ${theme.border}`, boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
+          <h4 style={{ margin: '0 0 10px 0', color: theme.textMain, fontSize: '14px' }}>Average Error (MAPE)</h4>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
             <span style={{ color: COLORS.xgb, fontWeight: 'bold' }}>XGBoost:</span>
             <span style={{ fontWeight: 'bold' }}>{resultXGB ? `${formatNumber(mapeXGB)}%` : 'Not trained yet'}</span>
@@ -430,24 +448,24 @@ function App() {
   }, [resultXGB, resultLSTM, resultHybrid]);
 
   const renderTabContent = (algo, result, loading, error, colorBtn, title, description) => (
-    <div style={{ padding: '30px', backgroundColor: 'white', border: '1px solid #ddd', borderTop: 'none', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px' }}>
+    <div style={{ padding: '30px', backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderTop: 'none', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h3 style={{ color: '#333', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <h3 style={{ color: theme.textMain, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
           {algo === 'xgboost' && <Target size={24} color={colorBtn} />}
           {algo === 'lstm' && <BrainCircuit size={24} color={colorBtn} />}
           {algo === 'hybrid' && <Bot size={24} color={colorBtn} />}
           {title} Prediction Engine
         </h3>
-        <span style={{ fontSize: '12px', padding: '5px 10px', backgroundColor: '#f0f2f5', borderRadius: '20px', color: '#666', fontWeight: 'bold' }}>{description}</span>
+        <span style={{ fontSize: '12px', padding: '5px 10px', backgroundColor: theme.bg, borderRadius: '20px', color: theme.textMuted, fontWeight: 'bold' }}>{description}</span>
       </div>
 
       {error && (
-        <div style={{ backgroundColor: '#f8d7da', color: '#842029', padding: '15px', borderRadius: '8px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'bold', border: '1px solid #f5c2c7' }}>
+        <div style={{ backgroundColor: '#f8d7da', color: '#842029', padding: '15px', borderRadius: '8px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'bold', border: `1px solid ${theme.textMain}` }}>
           <AlertTriangle size={20} /> {error}
         </div>
       )}
 
-      <button onClick={() => handlePredict(algo)} disabled={loading} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', width: '100%', padding: '16px', backgroundColor: loading ? '#6c757d' : colorBtn, color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '16px', cursor: loading ? 'wait' : 'pointer', transition: 'all 0.3s', marginBottom: '30px', boxShadow: loading ? 'none' : `0 4px 10px ${colorBtn}40` }}>
+      <button onClick={() => handlePredict(algo)} disabled={loading} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', width: '100%', padding: '16px', backgroundColor: loading ? theme.textMain : colorBtn, color: theme.card, border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '16px', cursor: loading ? 'wait' : 'pointer', transition: 'all 0.3s', marginBottom: '30px', boxShadow: loading ? 'none' : `0 4px 10px ${colorBtn}40` }}>
         {loading ? (
           <>
             <span style={{ width: '20px', height: '20px', border: '3px solid rgba(255,255,255,0.3)', borderTop: '3px solid white', borderRadius: '50%', display: 'inline-block', animation: 'spin 1s linear infinite' }} />
@@ -461,22 +479,22 @@ function App() {
       </button>
 
       {result && (
-        <div className="card-hover" style={{ border: '1px solid #eee', padding: '25px', borderRadius: '12px', backgroundColor: '#fafbfc' }}>
-          <h4 style={{ color: '#444', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="card-hover" style={{ border: `1px solid ${theme.border}`, padding: '25px', borderRadius: '12px', backgroundColor: theme.card }}>
+          <h4 style={{ color: theme.textMain, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <LineChart size={20} color={colorBtn} /> Future Price Projection (Blind Forecasting)
           </h4>
           <div style={{ display: 'flex', gap: '15px', marginBottom: '30px' }}>
             {[1, 3, 7].map(hari => (
-              <div key={hari} style={{ flex: 1, backgroundColor: '#fff', padding: '20px', borderRadius: '10px', textAlign: 'center', border: '1px solid #e9ecef', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-                <div style={{ fontSize: '14px', color: '#888', fontWeight: '600', marginBottom: '10px', textTransform: 'uppercase' }}>{hari} Day(s) Ahead</div>
+              <div key={hari} style={{ flex: 1, backgroundColor: theme.card, padding: '20px', borderRadius: '10px', textAlign: 'center', border: `1px solid ${theme.bg}`, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                <div style={{ fontSize: '14px', color: theme.textMuted, fontWeight: '600', marginBottom: '10px', textTransform: 'uppercase' }}>{hari} Day(s) Ahead</div>
                 <div style={{ fontSize: '20px', color: colorBtn, fontWeight: 'bold' }}>{formatIDR(result.hasil_prediksi[hari])}</div>
               </div>
             ))}
           </div>
-          <div style={{ height: '400px', width: '100%', padding: '15px', backgroundColor: '#fff', border: '1px solid #eee', borderRadius: '10px' }}>
+          <div style={{ height: '400px', width: '100%', padding: '15px', backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '10px' }}>
             <Line data={getChartData(result, colorBtn)} options={chartOptionsIDR} />
           </div>
-          <p style={{ textAlign: 'center', fontSize: '12px', color: '#999', marginTop: '15px' }}>
+          <p style={{ textAlign: 'center', fontSize: '12px', color: theme.textMuted, marginTop: '15px' }}>
             *The chart connects the historical data of the last month with future projections. <b>Use scroll/pinch to Zoom, and drag to Pan.</b>
           </p>
         </div>
@@ -488,46 +506,46 @@ function App() {
     const availableResult = resultXGB || resultLSTM || resultHybrid;
 
     return (
-      <div style={{ padding: '30px', backgroundColor: 'white', border: '1px solid #ddd', borderTop: 'none', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px' }}>
+      <div style={{ padding: '30px', backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderTop: 'none', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-          <h3 style={{ color: '#333', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h3 style={{ color: theme.textMain, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <BarChart3 size={24} color={COLORS.actual} /> Model Evaluation & Comparison (Out-of-Sample Testing)
           </h3>
           {availableResult && (
-            <button onClick={handleExportExcel} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', backgroundColor: '#107c41', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', transition: '0.2s', boxShadow: '0 2px 6px rgba(16,124,65,0.4)' }}>
+            <button onClick={handleExportExcel} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', backgroundColor: '#107c41', color: theme.card, border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', transition: '0.2s', boxShadow: '0 2px 6px rgba(16,124,65,0.4)' }}>
               <FileSpreadsheet size={18} /> Export to Excel
             </button>
           )}
         </div>
 
         {!availableResult ? (
-          <div style={{ textAlign: 'center', padding: '60px 20px', color: '#666', backgroundColor: '#f8f9fa', borderRadius: '12px', border: '2px dashed #ddd' }}>
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: theme.textMuted, backgroundColor: theme.bg, borderRadius: '12px', border: `2px dashed ${theme.border}` }}>
             <Inbox size={48} color="#adb5bd" style={{ margin: '0 auto 15px auto' }} />
-            <h3 style={{ margin: '0 0 10px 0', color: '#444' }}>No Evaluation Data Yet</h3>
+            <h3 style={{ margin: '0 0 10px 0', color: theme.textMain }}>No Evaluation Data Yet</h3>
             <p style={{ margin: 0, fontSize: '15px' }}>Please run a prediction on one of the algorithm tabs first to view the comprehensive analysis.</p>
           </div>
         ) : (
           <div>
             {insightSummary}
-            <h4 style={{ color: '#444', borderBottom: '2px solid #f0f0f0', paddingBottom: '10px', marginBottom: '20px' }}>1. Research Dataset Proportion (Explicit Split)</h4>
+            <h4 style={{ color: theme.textMain, borderBottom: `2px solid ${theme.border}`, paddingBottom: '10px', marginBottom: '20px' }}>1. Research Dataset Proportion (Explicit Split)</h4>
             <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '40px' }}>
-              <div className="card-hover" style={{ flex: 1, backgroundColor: '#fff', padding: '20px', borderRadius: '10px', border: '1px solid #b8daff', textAlign: 'center', boxShadow: '0 2px 8px rgba(41,128,185,0.1)' }}>
+              <div className="card-hover" style={{ flex: 1, backgroundColor: theme.card, padding: '20px', borderRadius: '10px', border: `1px solid ${theme.border}`, textAlign: 'center', boxShadow: '0 2px 8px rgba(41,128,185,0.1)' }}>
                 <span style={{ fontSize: '13px', color: COLORS.actual, display: 'block', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>Training Data (Learning)</span>
                 <strong style={{ fontSize: '26px', color: COLORS.actual }}>{availableResult.info_data.data_training_mentah} Rows</strong>
-                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>({availableResult.info_data.sekuens_training} Fit Sequences)</div>
+                <div style={{ fontSize: '12px', color: theme.textMuted, marginTop: '5px' }}>({availableResult.info_data.sekuens_training} Fit Sequences)</div>
               </div>
-              <div className="card-hover" style={{ flex: 1, backgroundColor: '#fff', padding: '20px', borderRadius: '10px', border: '1px solid #f5c2c7', textAlign: 'center', boxShadow: '0 2px 8px rgba(231,76,60,0.1)' }}>
+              <div className="card-hover" style={{ flex: 1, backgroundColor: theme.card, padding: '20px', borderRadius: '10px', border: `1px solid ${theme.textMain}`, textAlign: 'center', boxShadow: '0 2px 8px rgba(231,76,60,0.1)' }}>
                 <span style={{ fontSize: '13px', color: COLORS.xgb, display: 'block', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '5px' }}>Testing Data (Evaluation)</span>
                 <strong style={{ fontSize: '26px', color: COLORS.xgb }}>{availableResult.info_data.data_testing_mentah} Rows</strong>
-                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>({availableResult.info_data.sekuens_testing} Test Sequences)</div>
+                <div style={{ fontSize: '12px', color: theme.textMuted, marginTop: '5px' }}>({availableResult.info_data.sekuens_testing} Test Sequences)</div>
               </div>
             </div>
 
-            <h4 style={{ color: '#444', borderBottom: '2px solid #f0f0f0', paddingBottom: '10px', marginBottom: '20px' }}>2. Prediction vs. Actual Visualization (Testing Data)</h4>
-            <div className="card-hover" style={{ marginBottom: '40px', padding: '25px', border: '1px solid #e9ecef', borderRadius: '12px', backgroundColor: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+            <h4 style={{ color: theme.textMain, borderBottom: `2px solid ${theme.border}`, paddingBottom: '10px', marginBottom: '20px' }}>2. Prediction vs. Actual Visualization (Testing Data)</h4>
+            <div className="card-hover" style={{ marginBottom: '40px', padding: '25px', border: `1px solid ${theme.bg}`, borderRadius: '12px', backgroundColor: theme.card, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <span style={{ fontSize: '15px', color: '#555', fontWeight: '600' }}>Target Horizon Review:</span>
-                <select value={evalHorizon} onChange={(e) => setEvalHorizon(e.target.value)} style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #ccc', fontWeight: 'bold', outline: 'none', cursor: 'pointer', backgroundColor: '#f8f9fa' }}>
+                <span style={{ fontSize: '15px', color: theme.textMain, fontWeight: '600' }}>Target Horizon Review:</span>
+                <select value={evalHorizon} onChange={(e) => setEvalHorizon(e.target.value)} style={{ padding: '10px 20px', borderRadius: '8px', border: `1px solid ${theme.border}`, fontWeight: 'bold', outline: 'none', cursor: 'pointer', backgroundColor: theme.bg }}>
                   <option value="1">1 Day Ahead</option>
                   <option value="3">3 Days Ahead</option>
                   <option value="7">7 Days Ahead</option>
@@ -536,22 +554,22 @@ function App() {
               {getLineComparasiData(evalHorizon) ? (
                 <div style={{ height: '380px', width: '100%' }}><Line data={getLineComparasiData(evalHorizon)} options={chartOptionsIDR} /></div>
               ) : (
-                <div style={{ textAlign: 'center', padding: '40px', color: '#888', fontStyle: 'italic', backgroundColor: '#fdfdfd', borderRadius: '8px', border: '1px dashed #ddd' }}>Waiting for detailed evaluation data extraction.</div>
+                <div style={{ textAlign: 'center', padding: '40px', color: theme.textMuted, fontStyle: 'italic', backgroundColor: theme.card, borderRadius: '8px', border: `1px dashed ${theme.border}` }}>Waiting for detailed evaluation data extraction.</div>
               )}
             </div>
 
-            <h4 style={{ color: '#444', borderBottom: '2px solid #f0f0f0', paddingBottom: '10px', marginBottom: '20px' }}>3. Error Metrics Recapitulation</h4>
+            <h4 style={{ color: theme.textMain, borderBottom: `2px solid ${theme.border}`, paddingBottom: '10px', marginBottom: '20px' }}>3. Error Metrics Recapitulation</h4>
             <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-              <div className="card-hover" style={{ flex: '1 1 30%', height: '320px', backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #e9ecef', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-                <h4 style={{ textAlign: 'center', margin: '0 0 15px 0', color: '#555' }}>RMSE (Root Mean Squared Error)</h4>
+              <div className="card-hover" style={{ flex: '1 1 30%', height: '320px', backgroundColor: theme.card, padding: '20px', borderRadius: '12px', border: `1px solid ${theme.bg}`, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                <h4 style={{ textAlign: 'center', margin: '0 0 15px 0', color: theme.textMain }}>RMSE (Root Mean Squared Error)</h4>
                 <Bar data={getBarChartData('RMSE')} options={barChartOptionsPrice} />
               </div>
-              <div className="card-hover" style={{ flex: '1 1 30%', height: '320px', backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #e9ecef', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-                <h4 style={{ textAlign: 'center', margin: '0 0 15px 0', color: '#555' }}>MAE (Mean Absolute Error)</h4>
+              <div className="card-hover" style={{ flex: '1 1 30%', height: '320px', backgroundColor: theme.card, padding: '20px', borderRadius: '12px', border: `1px solid ${theme.bg}`, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                <h4 style={{ textAlign: 'center', margin: '0 0 15px 0', color: theme.textMain }}>MAE (Mean Absolute Error)</h4>
                 <Bar data={getBarChartData('MAE')} options={barChartOptionsPrice} />
               </div>
-              <div className="card-hover" style={{ flex: '1 1 30%', height: '320px', backgroundColor: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #e9ecef', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-                <h4 style={{ textAlign: 'center', margin: '0 0 15px 0', color: '#555' }}>MAPE (Mean Absolute Percentage Error)</h4>
+              <div className="card-hover" style={{ flex: '1 1 30%', height: '320px', backgroundColor: theme.card, padding: '20px', borderRadius: '12px', border: `1px solid ${theme.bg}`, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                <h4 style={{ textAlign: 'center', margin: '0 0 15px 0', color: theme.textMain }}>MAPE (Mean Absolute Percentage Error)</h4>
                 <Bar data={getBarChartData('MAPE')} options={barChartOptionsMAPE} />
               </div>
             </div>
@@ -564,7 +582,7 @@ function App() {
   const isTabDisabled = loadingXGB || loadingLSTM || loadingHybrid;
 
   return (
-    <div style={{ fontFamily: '"Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', backgroundColor: '#f0f2f5', minHeight: '100vh', padding: '40px 20px' }}>
+    <div style={{ fontFamily: '"Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', backgroundColor: theme.bg, minHeight: '100vh', padding: '40px 20px' }}>
       <style>{`
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .card-hover { transition: all 0.25s ease-in-out; }
@@ -572,55 +590,62 @@ function App() {
       `}</style>
 
       <div style={{ maxWidth: '1150px', margin: '0 auto' }}>
+        
 
-        <div className="card-hover" style={{ backgroundColor: '#fff', padding: '35px', borderRadius: '16px', boxShadow: '0 4px 15px rgba(0,0,0,0.04)', marginBottom: '25px', position: 'relative' }}>
-          {(resultXGB || resultLSTM || resultHybrid) && (
-            <button onClick={handleReset} style={{ position: 'absolute', top: '25px', right: '25px', padding: '8px 15px', backgroundColor: '#f8d7da', color: '#842029', border: '1px solid #f5c2c7', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', transition: '0.2s', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <RotateCcw size={16} /> Reset Data
+        <div className="card-hover" style={{ backgroundColor: theme.card, padding: '35px', borderRadius: '16px', boxShadow: '0 4px 15px rgba(0,0,0,0.04)', marginBottom: '25px', position: 'relative' }}>
+          <div style={{ position: 'absolute', top: '25px', right: '25px', display: 'flex', gap: '10px' }}>
+            <button onClick={() => setIsDarkMode(!isDarkMode)} style={{ padding: '8px 15px', backgroundColor: theme.card, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', transition: '0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+              {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+              {isDarkMode ? 'Light Mode' : 'Dark Mode'}
             </button>
-          )}
+            {(resultXGB || resultLSTM || resultHybrid) && (
+              <button onClick={handleReset} style={{ padding: '8px 15px', backgroundColor: '#f8d7da', color: '#842029', border: `1px solid ${theme.textMain}`, borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', transition: '0.2s', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <RotateCcw size={16} /> Reset Data
+              </button>
+            )}
+          </div>
 
-          <h2 style={{ textAlign: 'center', color: '#1a1a1a', margin: '0 0 8px 0', fontSize: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-            <LineChart size={32} color="#0d6efd" /> Bitcoin Time-Series Analysis Dashboard
+          <h2 style={{ textAlign: 'center', color: theme.textMain, margin: '0 0 8px 0', fontSize: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+            <LineChart size={32} color={theme.textMain} /> Bitcoin Time-Series Analysis Dashboard
           </h2>
-          <p style={{ textAlign: 'center', color: '#7f8c8d', fontSize: '16px', margin: '0 0 25px 0', fontWeight: '500' }}>Sapar Hidayat. S (2201020003)</p>
+          <p style={{ textAlign: 'center', color: theme.textMain, fontSize: '16px', margin: '0 0 25px 0', fontWeight: '500' }}>Sapar Hidayat. S (2201020003)</p>
 
           <div style={{ display: 'flex', gap: '20px', transition: '0.3s', opacity: isTabDisabled ? 0.6 : 1, marginTop: '30px' }}>
-            <div style={{ flex: 1, backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '10px', border: '2px dashed #6ea8fe' }}>
-              <label style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', color: '#0d6efd', fontSize: '15px' }}>
+            <div style={{ flex: 1, backgroundColor: theme.bg, padding: '20px', borderRadius: '10px', border: `2px dashed ${theme.border}` }}>
+              <label style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', color: theme.textMain, fontSize: '15px' }}>
                 <History size={20} /> 1. Upload Historical CSV (Training Data)
               </label>
-              <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#6c757d' }}>Bitcoin Data Jan 1, 2020 - Dec 31, 2025.</p>
+              <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: theme.textMain }}>Bitcoin Data Jan 1, 2020 - Dec 31, 2025.</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Upload size={18} color="#0d6efd" />
-                <input id="input-train" type="file" accept=".csv" onChange={handleFileTrainChange} disabled={isTabDisabled} style={{ flex: 1, padding: '10px', backgroundColor: '#fff', border: '1px solid #ced4da', borderRadius: '6px', cursor: isTabDisabled ? 'not-allowed' : 'pointer', fontSize: '14px' }} />
+                <Upload size={18} color={theme.textMain} />
+                <input id="input-train" type="file" accept=".csv" onChange={handleFileTrainChange} disabled={isTabDisabled} style={{ flex: 1, padding: '10px', backgroundColor: theme.card, border: '1px solid #ced4da', borderRadius: '6px', cursor: isTabDisabled ? 'not-allowed' : 'pointer', fontSize: '14px' }} />
               </div>
             </div>
 
-            <div style={{ flex: 1, backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '10px', border: '2px dashed #f5c2c7' }}>
-              <label style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', color: '#dc3545', fontSize: '15px' }}>
+            <div style={{ flex: 1, backgroundColor: theme.bg, padding: '20px', borderRadius: '10px', border: `2px dashed ${theme.border}` }}>
+              <label style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', color: theme.textMain, fontSize: '15px' }}>
                 <CalendarCheck size={20} /> 2. Upload Actual CSV (Testing Data)
               </label>
-              <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#6c757d' }}>Bitcoin Data Jan 1, 2026 - Present.</p>
+              <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: theme.textMain }}>Bitcoin Data Jan 1, 2026 - Present.</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Upload size={18} color="#dc3545" />
-                <input id="input-test" type="file" accept=".csv" onChange={handleFileTestChange} disabled={isTabDisabled} style={{ flex: 1, padding: '10px', backgroundColor: '#fff', border: '1px solid #ced4da', borderRadius: '6px', cursor: isTabDisabled ? 'not-allowed' : 'pointer', fontSize: '14px' }} />
+                <Upload size={18} color={theme.textMain} />
+                <input id="input-test" type="file" accept=".csv" onChange={handleFileTestChange} disabled={isTabDisabled} style={{ flex: 1, padding: '10px', backgroundColor: theme.card, border: '1px solid #ced4da', borderRadius: '6px', cursor: isTabDisabled ? 'not-allowed' : 'pointer', fontSize: '14px' }} />
               </div>
             </div>
           </div>
         </div>
 
         <div style={{ display: 'flex', opacity: isTabDisabled ? 0.6 : 1, pointerEvents: isTabDisabled ? 'none' : 'auto', gap: '5px', marginBottom: '-1px', zIndex: 1, position: 'relative' }}>
-          <button onClick={() => setActiveTab('xgboost')} style={{ flex: 1, padding: '16px', background: activeTab === 'xgboost' ? 'white' : '#e9ecef', color: activeTab === 'xgboost' ? COLORS.xgb : '#6c757d', border: '1px solid #ddd', borderBottom: activeTab === 'xgboost' ? 'none' : '1px solid #ddd', borderTopLeftRadius: '12px', borderTopRightRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', transition: '0.2s', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+          <button onClick={() => setActiveTab('xgboost')} style={{ flex: 1, padding: '16px', background: activeTab === 'xgboost' ? theme.tabActiveBg : theme.tabInactiveBg, color: activeTab === 'xgboost' ? COLORS.xgb : theme.textMain, border: `1px solid ${theme.border}`, borderBottom: activeTab === 'xgboost' ? 'none' : `1px solid ${theme.border}`, borderTopLeftRadius: '12px', borderTopRightRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', transition: '0.2s', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
             <Target size={20} /> XGBoost Prediction
           </button>
-          <button onClick={() => setActiveTab('lstm')} style={{ flex: 1, padding: '16px', background: activeTab === 'lstm' ? 'white' : '#e9ecef', color: activeTab === 'lstm' ? COLORS.lstm : '#6c757d', border: '1px solid #ddd', borderBottom: activeTab === 'lstm' ? 'none' : '1px solid #ddd', borderTopLeftRadius: '12px', borderTopRightRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', transition: '0.2s', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+          <button onClick={() => setActiveTab('lstm')} style={{ flex: 1, padding: '16px', background: activeTab === 'lstm' ? theme.tabActiveBg : theme.tabInactiveBg, color: activeTab === 'lstm' ? COLORS.lstm : theme.textMain, border: `1px solid ${theme.border}`, borderBottom: activeTab === 'lstm' ? 'none' : `1px solid ${theme.border}`, borderTopLeftRadius: '12px', borderTopRightRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', transition: '0.2s', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
             <BrainCircuit size={20} /> LSTM Prediction
           </button>
-          <button onClick={() => setActiveTab('hybrid')} style={{ flex: 1, padding: '16px', background: activeTab === 'hybrid' ? 'white' : '#e9ecef', color: activeTab === 'hybrid' ? COLORS.hybrid : '#6c757d', border: '1px solid #ddd', borderBottom: activeTab === 'hybrid' ? 'none' : '1px solid #ddd', borderTopLeftRadius: '12px', borderTopRightRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', transition: '0.2s', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+          <button onClick={() => setActiveTab('hybrid')} style={{ flex: 1, padding: '16px', background: activeTab === 'hybrid' ? theme.tabActiveBg : theme.tabInactiveBg, color: activeTab === 'hybrid' ? COLORS.hybrid : theme.textMain, border: `1px solid ${theme.border}`, borderBottom: activeTab === 'hybrid' ? 'none' : `1px solid ${theme.border}`, borderTopLeftRadius: '12px', borderTopRightRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', transition: '0.2s', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
             <Bot size={20} /> Hybrid Prediction
           </button>
-          <button onClick={() => setActiveTab('evaluasi')} style={{ flex: 1, padding: '16px', background: activeTab === 'evaluasi' ? 'white' : '#e9ecef', color: activeTab === 'evaluasi' ? COLORS.actual : '#6c757d', border: '1px solid #ddd', borderBottom: activeTab === 'evaluasi' ? 'none' : '1px solid #ddd', borderTopLeftRadius: '12px', borderTopRightRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', transition: '0.2s', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+          <button onClick={() => setActiveTab('evaluasi')} style={{ flex: 1, padding: '16px', background: activeTab === 'evaluasi' ? theme.tabActiveBg : theme.tabInactiveBg, color: activeTab === 'evaluasi' ? COLORS.actual : theme.textMain, border: `1px solid ${theme.border}`, borderBottom: activeTab === 'evaluasi' ? 'none' : `1px solid ${theme.border}`, borderTopLeftRadius: '12px', borderTopRightRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', transition: '0.2s', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
             <BarChart3 size={20} /> Model Comparison
           </button>
         </div>
@@ -638,4 +663,10 @@ function App() {
 }
 
 export default App;
+
+
+
+
+
+
 
