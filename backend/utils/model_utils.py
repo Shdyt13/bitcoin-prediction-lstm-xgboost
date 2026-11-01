@@ -34,7 +34,7 @@ FORECAST_HORIZONS = [1, 3, 7]
 CLOSE_COL_INDEX = 1  # Index of the "Close" column
 VALID_ALGORITHMS = {"xgboost", "lstm", "hybrid"}
 
-XGB_SEARCH_N_JOBS = max(1, (os.cpu_count() or 2) - 1)
+XGB_SEARCH_N_JOBS = 1
 
 
 # ==========================================
