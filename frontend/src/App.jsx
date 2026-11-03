@@ -232,67 +232,317 @@ function App() {
   const handleExportExcel = () => {
     const wb = XLSX.utils.book_new();
 
-    const metricsData = [];
-    const models = [
-      { name: 'XGBoost', data: resultXGB },
-      { name: 'LSTM', data: resultLSTM },
-      { name: 'Hybrid (LSTM+XGB)', data: resultHybrid }
-    ];
+    const appendSheetWithAutoWidth = (workbook, rows, sheetName) => {
+      if (!rows || rows.length === 0) return;
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const allKeys = Array.from(
+        rows.reduce((keySet, r) => {
+          Object.keys(r || {}).forEach((k) => keySet.add(k));
+          return keySet;
+        }, new Set())
+      );
+      ws['!cols'] = allKeys.map((key) => {
+        const maxCellLen = rows.reduce((maxLen, r) => {
+          const val = r && r[key] !== undefined && r[key] !== null ? String(r[key]) : '';
+          return Math.max(maxLen, val.length);
+        }, key.length);
+        return { wch: Math.min(Math.max(maxCellLen + 3, 14), 42) };
+      });
+      XLSX.utils.book_append_sheet(workbook, ws, sheetName.slice(0, 31));
+    };
 
-    models.forEach(model => {
+    const models = [
+      { key: 'xgboost', name: 'XGBoost', data: resultXGB },
+      { key: 'lstm', name: 'LSTM', data: resultLSTM },
+      { key: 'hybrid', name: 'Hybrid (LSTM+XGB)', data: resultHybrid }
+    ];
+    const availableResult = resultHybrid || resultLSTM || resultXGB;
+    if (!availableResult) return;
+
+    // =========================================================================
+    // SHEET 1: 1. Evaluation Metrics (RMSE, MAE, MAPE & Best Model per Horizon)
+    // =========================================================================
+    const metricsData = [];
+    const bestMapeByHorizon = {};
+    ['1', '3', '7'].forEach((h) => {
+      let bestModel = null;
+      let bestMape = Infinity;
+      models.forEach((m) => {
+        const mapeVal = m.data?.evaluasi?.[h]?.MAPE;
+        if (typeof mapeVal === 'number' && mapeVal < bestMape) {
+          bestMape = mapeVal;
+          bestModel = m.name;
+        }
+      });
+      bestMapeByHorizon[h] = bestModel;
+    });
+
+    models.forEach((model) => {
       if (model.data) {
-        ['1', '3', '7'].forEach(h => {
-          if (model.data.evaluasi[h]) {
+        ['1', '3', '7'].forEach((h) => {
+          if (model.data.evaluasi?.[h]) {
             metricsData.push({
               'Algorithm Model': model.name,
-              'Target Horizon (Days)': parseInt(h),
+              'Target Horizon (Days)': parseInt(h, 10),
               'RMSE': model.data.evaluasi[h].RMSE,
               'MAE': model.data.evaluasi[h].MAE,
-              'MAPE (%)': model.data.evaluasi[h].MAPE
+              'MAPE (%)': model.data.evaluasi[h].MAPE,
+              'Evaluation Status':
+                bestMapeByHorizon[h] === model.name ? 'Best Accuracy (Lowest MAPE)' : 'Evaluated'
             });
           }
         });
       }
     });
+    appendSheetWithAutoWidth(wb, metricsData, "1. Evaluation Metrics");
 
-    const wsMetrics = XLSX.utils.json_to_sheet(metricsData);
-    XLSX.utils.book_append_sheet(wb, wsMetrics, "1. Evaluation Metrics");
+    // =========================================================================
+    // SHEET 2: 2. Future Projections (Blind Forecasting H+1, H+3, H+7)
+    // =========================================================================
+    const horizonLabels = ['1 Day Ahead (H+1)', '3 Days Ahead (H+3)', '7 Days Ahead (H+7)'];
+    const forecastData = [];
+    availableResult.grafik.future_dates.forEach((date, index) => {
+      const row = {
+        'Forecast Horizon': horizonLabels[index] || `Horizon ${index + 1}`,
+        'Date': date
+      };
+      if (resultXGB) row['XGBoost Prediction (IDR)'] = resultXGB.grafik.future_prices[index];
+      if (resultLSTM) row['LSTM Prediction (IDR)'] = resultLSTM.grafik.future_prices[index];
+      if (resultHybrid) row['Hybrid Prediction (IDR)'] = resultHybrid.grafik.future_prices[index];
+      forecastData.push(row);
+    });
+    appendSheetWithAutoWidth(wb, forecastData, "2. Future Projections");
 
-    const availableResult = resultHybrid || resultLSTM || resultXGB;
-    if (availableResult) {
-      const forecastData = [];
-      availableResult.grafik.future_dates.forEach((date, index) => {
-        let row = { 'Date': date };
-        if (resultXGB) row['XGBoost Prediction (IDR)'] = resultXGB.grafik.future_prices[index];
-        if (resultLSTM) row['LSTM Prediction (IDR)'] = resultLSTM.grafik.future_prices[index];
-        if (resultHybrid) row['Hybrid Prediction (IDR)'] = resultHybrid.grafik.future_prices[index];
-        forecastData.push(row);
+    // =========================================================================
+    // SHEET 3: 3. Dataset & Preprocessing (Split, Scaler & Sliding Window Info)
+    // =========================================================================
+    const info = availableResult.info_data || {};
+    const datasetSummaryRows = [
+      {
+        'Category': 'Dataset Partition',
+        'Parameter / Metric': 'Total Raw Dataset Rows',
+        'Value': info.total_baris ?? '-',
+        'Description': 'Gabungan seluruh observasi harian Data Training + Data Testing'
+      },
+      {
+        'Category': 'Dataset Partition',
+        'Parameter / Metric': 'Raw Training Rows (Data Latih)',
+        'Value': info.data_training_mentah ?? '-',
+        'Description': info.train_start_date
+          ? `Periode: ${info.train_start_date} s.d. ${info.train_end_date}`
+          : 'Data historis pelatihan model'
+      },
+      {
+        'Category': 'Dataset Partition',
+        'Parameter / Metric': 'Raw Testing Rows (Data Uji)',
+        'Value': info.data_testing_mentah ?? '-',
+        'Description': info.test_start_date
+          ? `Periode: ${info.test_start_date} s.d. ${info.test_end_date}`
+          : 'Data evaluasi pengujian model (Out-of-Sample)'
+      },
+      {
+        'Category': 'Feature Engineering',
+        'Parameter / Metric': 'Selected Input Features',
+        'Value': 'Open (Index 0), Close (Index 1)',
+        'Description': '2 fitur harga harian dengan target prediksi harga Close'
+      },
+      {
+        'Category': 'Sliding Window',
+        'Parameter / Metric': 'Lookback Window Size (w)',
+        'Value': info.window_size ?? 30,
+        'Description': 'Jumlah hari historis (30 hari) sebagai matriks sekuens input'
+      },
+      {
+        'Category': 'Min-Max Normalization',
+        'Parameter / Metric': 'Training Open Price Min (X_min)',
+        'Value': info.scaler_min_open ?? '-',
+        'Description': 'Batas minimum fitur Open pada Data Latih (fit hanya pada Data Latih)'
+      },
+      {
+        'Category': 'Min-Max Normalization',
+        'Parameter / Metric': 'Training Open Price Max (X_max)',
+        'Value': info.scaler_max_open ?? '-',
+        'Description': 'Batas maksimum fitur Open pada Data Latih'
+      },
+      {
+        'Category': 'Min-Max Normalization',
+        'Parameter / Metric': 'Training Close Price Min (X_min)',
+        'Value': info.scaler_min_close ?? '-',
+        'Description': 'Batas minimum fitur Close pada Data Latih (acuan denormalisasi target)'
+      },
+      {
+        'Category': 'Min-Max Normalization',
+        'Parameter / Metric': 'Training Close Price Max (X_max)',
+        'Value': info.scaler_max_close ?? '-',
+        'Description': 'Batas maksimum fitur Close pada Data Latih (acuan denormalisasi target)'
+      }
+    ];
+
+    const horizonSeqInfo = info.horizons_sequence_info || {};
+    ['1', '3', '7'].forEach((h) => {
+      const hInfo = horizonSeqInfo[h];
+      if (hInfo) {
+        datasetSummaryRows.push({
+          'Category': `Sliding Window (Horizon ${h} Hari)`,
+          'Parameter / Metric': `Training & Testing Sequences (H+${h})`,
+          'Value': `Train: ${hInfo.sekuens_training} sekuens | Test: ${hInfo.sekuens_testing} sekuens`,
+          'Description': `Context Stitching: ${hInfo.context_stitching_rows} baris terakhir data latih (30 + ${h} - 1)`
+        });
+      }
+    });
+    appendSheetWithAutoWidth(wb, datasetSummaryRows, "3. Dataset & Preprocessing");
+
+    // =========================================================================
+    // SHEET 4: 4. Hyperparameter Tuning (XGBoost & Hybrid RandomizedSearchCV)
+    // =========================================================================
+    const tuningRows = [];
+    models.forEach((model) => {
+      if (!model.data?.analisis_training) return;
+      ['1', '3', '7'].forEach((h) => {
+        const xgbReport = model.data.analisis_training[h]?.xgboost_tuning;
+        if (!xgbReport) return;
+
+        const roleLabel =
+          model.key === 'hybrid'
+            ? 'Hybrid Stage-2 (XGBoost Residual Learner)'
+            : 'Standalone XGBoost Regressor';
+
+        (xgbReport.candidates || []).forEach((cand) => {
+          tuningRows.push({
+            'Algorithm Model': model.name,
+            'Model Role': roleLabel,
+            'Target Horizon (Days)': parseInt(h, 10),
+            'Search Method': `${xgbReport.search_method} (${xgbReport.cv_folds}-Fold CV)`,
+            'Iteration': cand.iteration,
+            'Rank': cand.rank,
+            'Is Best Parameter': cand.rank === 1 ? 'YES (Selected)' : 'No',
+            'n_estimators': cand.n_estimators,
+            'learning_rate': cand.learning_rate,
+            'max_depth': cand.max_depth,
+            'subsample': cand.subsample,
+            'colsample_bytree': cand.colsample_bytree,
+            'Fold 1 MAE (Scaled)': cand.fold_1_mae,
+            'Fold 2 MAE (Scaled)': cand.fold_2_mae,
+            'Fold 3 MAE (Scaled)': cand.fold_3_mae,
+            'Mean CV MAE (Scaled)': cand.mean_cv_mae,
+            'Std CV MAE (Scaled)': cand.std_cv_mae,
+            'Mean Fit Time (sec)': cand.mean_fit_time_sec
+          });
+        });
       });
+    });
+    if (tuningRows.length > 0) {
+      appendSheetWithAutoWidth(wb, tuningRows, "4. Hyperparameter Tuning");
+    }
 
-      const wsForecast = XLSX.utils.json_to_sheet(forecastData);
-      XLSX.utils.book_append_sheet(wb, wsForecast, "2. Future Projections");
+    // =========================================================================
+    // SHEET 5: 5. Training Summary (LSTM EarlyStopping & Hybrid Residuals)
+    // =========================================================================
+    const trainingSummaryRows = [];
+    const epochHistoryRows = [];
+
+    models.forEach((model) => {
+      if (!model.data?.analisis_training) return;
+      ['1', '3', '7'].forEach((h) => {
+        const hMeta = model.data.analisis_training[h];
+        const lstmReport = hMeta?.lstm_training;
+        const resStats = hMeta?.residual_stats;
+        if (!lstmReport) return;
+
+        trainingSummaryRows.push({
+          'Algorithm Model': model.name,
+          'Target Horizon (Days)': parseInt(h, 10),
+          'Max Epochs Configured': lstmReport.max_epochs,
+          'Total Epochs Executed': lstmReport.epochs_trained,
+          'Best Epoch (Restored Weights)': lstmReport.best_epoch,
+          'Early Stopping Triggered': lstmReport.stopped_early ? 'Yes (Stopped Early)' : 'No (Full Epochs)',
+          'Early Stopping Patience': lstmReport.patience,
+          'Batch Size': lstmReport.batch_size,
+          'Train Samples (90%)': lstmReport.train_samples,
+          'Validation Samples (10%)': lstmReport.val_samples,
+          'Best Epoch Train Loss (MSE)': lstmReport.best_train_loss,
+          'Best Epoch Val Loss (MSE)': lstmReport.best_val_loss,
+          'Final Epoch Train Loss (MSE)': lstmReport.final_train_loss,
+          'Final Epoch Val Loss (MSE)': lstmReport.final_val_loss,
+          'Hybrid Train Residual Mean (Scaled)': resStats ? resStats.train_residual_mean_scaled : '-',
+          'Hybrid Train Residual MAE (Scaled)': resStats ? resStats.train_residual_mae_scaled : '-',
+          'Hybrid Test Residual Correction MAE (Scaled)': resStats ? resStats.test_residual_mae_scaled : '-'
+        });
+
+        (lstmReport.epoch_history || []).forEach((ep) => {
+          epochHistoryRows.push({
+            'Algorithm Model': model.name,
+            'Target Horizon (Days)': parseInt(h, 10),
+            'Epoch': ep.epoch,
+            'Training Loss (MSE)': ep.train_loss,
+            'Validation Loss (MSE)': ep.val_loss,
+            'Generalization Gap (Val - Train)':
+              ep.val_loss !== null && ep.val_loss !== undefined ? ep.val_loss - ep.train_loss : null,
+            'Epoch Status': ep.is_best_epoch ? 'BEST EPOCH (Weights Restored)' : 'Trained'
+          });
+        });
+      });
+    });
+
+    if (trainingSummaryRows.length > 0) {
+      appendSheetWithAutoWidth(wb, trainingSummaryRows, "5. Training Process Summary");
+    }
+    if (epochHistoryRows.length > 0) {
+      appendSheetWithAutoWidth(wb, epochHistoryRows, "6. LSTM Epoch Loss History");
+    }
+
+    // =========================================================================
+    // SHEETS 7, 8, 9: Detail Testing per Horizon (Horizon 1, 3, and 7 Days)
+    // =========================================================================
+    const testDates = info.test_dates || [];
+    const horizonSheetMap = [
+      { horizon: '1', sheetName: '7. Detail Testing (Horizon 1)' },
+      { horizon: '3', sheetName: '8. Detail Testing (Horizon 3)' },
+      { horizon: '7', sheetName: '9. Detail Testing (Horizon 7)' }
+    ];
+
+    horizonSheetMap.forEach(({ horizon, sheetName }) => {
+      const actuals = availableResult.evaluasi?.[horizon]?.evaluasi_detail?.actual;
+      if (!actuals || actuals.length === 0) return;
 
       const testingData = [];
-      const actuals = availableResult.evaluasi['1'].evaluasi_detail.actual;
-
       actuals.forEach((actualVal, index) => {
-        let row = {
+        const row = {
           'Test Data Instance': index + 1,
+          'Date': testDates[index] || `Day ${index + 1}`,
+          'Target Horizon (Days)': parseInt(horizon, 10),
           'Actual Price (IDR)': actualVal
         };
-        if (resultXGB) row['XGBoost Prediction (IDR)'] = resultXGB.evaluasi['1'].evaluasi_detail.predicted[index];
-        if (resultLSTM) row['LSTM Prediction (IDR)'] = resultLSTM.evaluasi['1'].evaluasi_detail.predicted[index];
-        if (resultHybrid) row['Hybrid Prediction (IDR)'] = resultHybrid.evaluasi['1'].evaluasi_detail.predicted[index];
 
-        if (resultHybrid) {
-          row['Hybrid Error Difference (IDR)'] = Math.abs(actualVal - resultHybrid.evaluasi['1'].evaluasi_detail.predicted[index]);
+        if (resultXGB?.evaluasi?.[horizon]) {
+          const predXgb = resultXGB.evaluasi[horizon].evaluasi_detail.predicted[index];
+          const errXgb = Math.abs(actualVal - predXgb);
+          row['XGBoost Prediction (IDR)'] = predXgb;
+          row['XGBoost Error (IDR)'] = errXgb;
+          row['XGBoost APE (%)'] = actualVal ? (errXgb / actualVal) * 100 : 0;
         }
+
+        if (resultLSTM?.evaluasi?.[horizon]) {
+          const predLstm = resultLSTM.evaluasi[horizon].evaluasi_detail.predicted[index];
+          const errLstm = Math.abs(actualVal - predLstm);
+          row['LSTM Prediction (IDR)'] = predLstm;
+          row['LSTM Error (IDR)'] = errLstm;
+          row['LSTM APE (%)'] = actualVal ? (errLstm / actualVal) * 100 : 0;
+        }
+
+        if (resultHybrid?.evaluasi?.[horizon]) {
+          const predHyb = resultHybrid.evaluasi[horizon].evaluasi_detail.predicted[index];
+          const errHyb = Math.abs(actualVal - predHyb);
+          row['Hybrid Prediction (IDR)'] = predHyb;
+          row['Hybrid Error Difference (IDR)'] = errHyb;
+          row['Hybrid APE (%)'] = actualVal ? (errHyb / actualVal) * 100 : 0;
+        }
+
         testingData.push(row);
       });
 
-      const wsTesting = XLSX.utils.json_to_sheet(testingData);
-      XLSX.utils.book_append_sheet(wb, wsTesting, "3. Detail Testing (Horizon 1)");
-    }
+      appendSheetWithAutoWidth(wb, testingData, sheetName);
+    });
 
     XLSX.writeFile(wb, "Bitcoin_Analysis_Data.xlsx");
   };
@@ -799,7 +1049,7 @@ function App() {
 
         <div style={{ zIndex: 0, position: 'relative' }}>
           {activeTab === 'xgboost' && renderTabContent('xgboost', resultXGB, loadingXGB, errorXGB, COLORS.xgb, 'XGBoost', 'Boosting Tree (Tuning)')}
-          {activeTab === 'lstm' && renderTabContent('lstm', resultLSTM, loadingLSTM, errorLSTM, COLORS.lstm, 'LSTM', 'Neural Network (50 Epochs)')}
+          {activeTab === 'lstm' && renderTabContent('lstm', resultLSTM, loadingLSTM, errorLSTM, COLORS.lstm, 'LSTM', 'Neural Network (30 Epochs)')}
           {activeTab === 'hybrid' && renderTabContent('hybrid', resultHybrid, loadingHybrid, errorHybrid, COLORS.hybrid, 'Hybrid (LSTM ➔ XGB)', 'Stacking Sequential')}
           {activeTab === 'evaluasi' && renderEvaluasiTab()}
         </div>

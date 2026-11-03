@@ -27,6 +27,7 @@ from utils.model_utils import (
     VALID_ALGORITHMS,
     WINDOW_SIZE,
     evaluate_predictions,
+    extract_training_metadata,
     inverse_transform_close,
     run_hybrid,
     run_lstm,
@@ -64,68 +65,6 @@ CORS(app)
 app.config["UPLOAD_FOLDER"] = os.path.join(BASE_DIR, "uploads")
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
-REFERENCE_EXCEL_PATH = os.path.join(os.path.dirname(BASE_DIR), "docs", "Bitcoin_Analysis_Data.xlsx")
-ALGO_EXCEL_MAP = {
-    "xgboost": ("XGBoost", "XGBoost Prediction (IDR)"),
-    "lstm": ("LSTM", "LSTM Prediction (IDR)"),
-    "hybrid": ("Hybrid (LSTM+XGB)", "Hybrid Prediction (IDR)"),
-}
-
-
-def sync_reference_baseline(algorithm, info_data, evaluations, predictions, future_dates, future_prices):
-    """
-    Menjaga konsistensi hasil evaluasi & proyeksi terhadap baseline Docker (xgboost==2.0.3)
-    pada docs/Bitcoin_Analysis_Data.xlsx apabila dijalankan menggunakan environment Python lokal
-    pada dataset penelitian standar (2192 baris latih & 140 baris uji).
-    """
-    if (
-        info_data.get("data_training_mentah") != 2192
-        or info_data.get("data_testing_mentah") != 140
-        or not os.path.exists(REFERENCE_EXCEL_PATH)
-        or algorithm not in ALGO_EXCEL_MAP
-    ):
-        return
-
-    model_label, pred_col_label = ALGO_EXCEL_MAP[algorithm]
-    try:
-        df_metrics = pd.read_excel(REFERENCE_EXCEL_PATH, sheet_name="1. Evaluation Metrics")
-        df_future = pd.read_excel(REFERENCE_EXCEL_PATH, sheet_name="2. Future Projections")
-        df_detail = pd.read_excel(REFERENCE_EXCEL_PATH, sheet_name="3. Detail Testing (Horizon 1)")
-
-        # 1. Sinkronisasi metrik evaluasi (Horizon 1, 3, 7)
-        algo_rows = df_metrics[df_metrics["Algorithm Model"] == model_label]
-        for _, row in algo_rows.iterrows():
-            h_key = str(int(row["Target Horizon (Days)"]))
-            if h_key in evaluations:
-                evaluations[h_key]["RMSE"] = float(row["RMSE"])
-                evaluations[h_key]["MAE"] = float(row["MAE"])
-                evaluations[h_key]["MAPE"] = float(row["MAPE (%)"])
-
-        # 2. Sinkronisasi Detail Testing Horizon 1
-        if "1" in evaluations and pred_col_label in df_detail.columns:
-            valid_detail = df_detail[["Actual Price (IDR)", pred_col_label]].dropna()
-            if len(valid_detail) == 140:
-                evaluations["1"]["evaluasi_detail"]["actual"] = (
-                    valid_detail["Actual Price (IDR)"].astype(float).tolist()
-                )
-                evaluations["1"]["evaluasi_detail"]["predicted"] = (
-                    valid_detail[pred_col_label].astype(float).tolist()
-                )
-
-        # 3. Sinkronisasi Future Price Projections (H+1, H+3, H+7)
-        if pred_col_label in df_future.columns and len(df_future) >= 3:
-            horizons = ["1", "3", "7"]
-            future_prices.clear()
-            future_dates.clear()
-            for idx, h_key in enumerate(horizons):
-                val = float(df_future[pred_col_label].iloc[idx])
-                predictions[h_key] = val
-                future_dates.append(str(df_future["Date"].iloc[idx]))
-                future_prices.append(val)
-    except Exception:
-        pass
-
-
 
 def prepare_test_sequences(train_data, test_data, scaler, horizon):
     """Build windowed test sequences using the tail of the training data as context."""
@@ -141,7 +80,7 @@ def prepare_test_sequences(train_data, test_data, scaler, horizon):
 @app.route("/api/predict", methods=["POST"])
 def predict_api():
     """API Endpoint untuk memproses prediksi harga Bitcoin."""
-    
+
     # ==========================================
     # === UPLOAD FILE ===
     # ==========================================
@@ -172,7 +111,7 @@ def predict_api():
         # ==========================================
         # === PRA-PEMROSESAN DATA ===
         # ==========================================
-        _, train_clean, _, _ = clean_bitcoin_data(train_path)
+        train_df, train_clean, train_date_col, _ = clean_bitcoin_data(train_path)
         test_df, test_clean, date_column, close_column = clean_bitcoin_data(test_path)
 
         train_data = train_clean.values
@@ -185,11 +124,14 @@ def predict_api():
 
         predictions = {}
         evaluations = {}
+        analisis_training = {}
+        horizons_sequence_info = {}
         future_dates = []
         future_prices = []
         info_data = {}
 
         last_test_date = test_df[date_column].iloc[-1]
+        test_dates_all = test_df[date_column].dt.strftime("%d %b %Y").tolist()
 
         # ==========================================
         # === TRAINING MODEL & PREDIKSI ===
@@ -201,6 +143,14 @@ def predict_api():
             )
             X_test, y_test = prepare_test_sequences(train_data, test_data, scaler, horizon)
 
+            horizons_sequence_info[str(horizon)] = {
+                "horizon_days": int(horizon),
+                "window_size": int(WINDOW_SIZE),
+                "context_stitching_rows": int(WINDOW_SIZE + horizon - 1),
+                "sekuens_training": int(len(X_train)),
+                "sekuens_testing": int(len(X_test)),
+            }
+
             if horizon == 1:
                 info_data = {
                     "total_baris": len(train_data) + len(test_data),
@@ -208,6 +158,16 @@ def predict_api():
                     "data_testing_mentah": len(test_data),
                     "sekuens_training": len(X_train),
                     "sekuens_testing": len(X_test),
+                    "window_size": int(WINDOW_SIZE),
+                    "train_start_date": train_df[train_date_col].iloc[0].strftime("%d %b %Y"),
+                    "train_end_date": train_df[train_date_col].iloc[-1].strftime("%d %b %Y"),
+                    "test_start_date": test_df[date_column].iloc[0].strftime("%d %b %Y"),
+                    "test_end_date": test_df[date_column].iloc[-1].strftime("%d %b %Y"),
+                    "scaler_min_open": float(scaler.data_min_[0]),
+                    "scaler_max_open": float(scaler.data_max_[0]),
+                    "scaler_min_close": float(scaler.data_min_[1]),
+                    "scaler_max_close": float(scaler.data_max_[1]),
+                    "test_dates": test_dates_all,
                 }
 
             # Data historis terbaru untuk prediksi ke masa depan
@@ -215,9 +175,10 @@ def predict_api():
             future_input = scaler.transform(future_input_raw)
 
             # Menjalankan Algoritma Terpilih (LSTM, XGBoost, atau Hybrid)
-            _, y_pred_test_scaled, future_prediction_scaled = run_algorithm(
+            model_obj, y_pred_test_scaled, future_prediction_scaled = run_algorithm(
                 X_train, y_train, X_test, future_input
             )
+            analisis_training[str(horizon)] = extract_training_metadata(algorithm, model_obj)
 
             # Denormalisasi untuk mendapatkan hasil pada rentang harga aktual
             y_test_actual = inverse_transform_close(scaler, y_test)
@@ -232,10 +193,7 @@ def predict_api():
             future_dates.append((last_test_date + pd.Timedelta(days=horizon)).strftime("%d %b %Y"))
             future_prices.append(future_prediction)
 
-        # Sinkronisasi hasil terhadap baseline referensi (xgboost==2.0.3) bila dataset standar digunakan
-        sync_reference_baseline(
-            algorithm, info_data, evaluations, predictions, future_dates, future_prices
-        )
+        info_data["horizons_sequence_info"] = horizons_sequence_info
 
         # Menyiapkan data 30 hari terakhir untuk keperluan visualisasi grafik
         latest_data = test_df.tail(30)
@@ -246,6 +204,7 @@ def predict_api():
             "status": "success",
             "hasil_prediksi": predictions,
             "evaluasi": evaluations,
+            "analisis_training": analisis_training,
             "info_data": info_data,
             "grafik": {
                 "history_dates": history_dates,
