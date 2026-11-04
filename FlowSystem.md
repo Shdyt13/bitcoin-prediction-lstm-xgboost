@@ -32,22 +32,23 @@ Dokumen ini menjelaskan alur kerja (sistem flow) secara berurutan mulai dari int
 Pemrosesan data dipecah menjadi dua tahap utama:
 
 ### A. Pembersihan Data & Scaling
-- **File:** `backend/utils/preprocessing.py`
+- **File:** `backend/utils/preprocessing.py` & `backend/utils/model_utils.py`
 - **Fungsi:** 
-  - `load_and_clean_data(df)`: Membersihkan string yang mengandung format koma atau simbol mata uang, lalu mengonversinya menjadi tipe *Float*. Menangani *missing values* (data kosong) menggunakan teknik *Forward Fill* (`ffill`).
-  - `scale_data(train_df, test_df)`: Melakukan normalisasi (Min-Max Scaling). Kelas `MinMaxScaler` di-*fit* pada data *training*, kemudian digunakan untuk men-*transform* data *training* maupun data *testing* agar berada di rentang skala 0 hingga 1.
+  - `clean_bitcoin_data(filepath)`: Membersihkan string yang mengandung format koma atau simbol mata uang (`Rp `), mengurutkan secara kronologis berdasarkan tanggal, lalu mengonversinya menjadi tipe *Float*. Menangani *missing values* menggunakan teknik *Forward Fill* (`ffill`) dan `dropna()`.
+  - `MinMaxScaler(feature_range=(0, 1))`: Melakukan normalisasi (Min-Max Scaling). Objek `MinMaxScaler` di-*fit* hanya pada data *training* (`scaler.fit(train_data_raw)`), kemudian digunakan untuk men-*transform* data *training* maupun data *testing* agar berada di rentang skala `[0, 1]` tanpa kebocoran informasi (*zero data leakage*).
 
 ### B. Pembentukan Sliding Window
 - **File:** `backend/utils/windowing.py`
-- **Fungsi:** `create_sliding_window(scaled_train, scaled_test, window_size=30)`
-- **Proses:** Mengubah data berbentuk deret waktu (sekuensial 1D) menjadi pasangan matrix Input ($X$) dan Target ($y$) berbasis jendela geser sebesar 30 hari. Ini adalah bentuk format yang dibutuhkan oleh algoritma Machine Learning & Deep Learning.
+- **Fungsi:** `create_sequences(data, window_size=30, horizon=h, target_col_index=1)`
+- **Proses:** Mengubah data berbentuk deret waktu menjadi pasangan matriks Input ($X$) berukuran `(N, 30, 2)` dan Target ($y$) berbasis jendela geser 30 hari dengan pergeseran target sesuai horizon prediksi ($h \in \{1, 3, 7\}$). Untuk data pengujian, sistem menggabungkan ekor data latih sepanjang `WINDOW_SIZE + horizon - 1` hari sebagai konteks awal agar jumlah sekuens uji tetap konsisten sebanyak 140 sekuens pada setiap horizon.
 
 ## 6. Training Model & Forecasting
 - **File:** `backend/utils/model_utils.py`
-- **Proses:** Menerapkan strategi *Direct Multi-Step Forecasting* untuk memprediksi harga secara independen pada horizon yang berbeda ($h=1, 3, 7$). Berdasarkan request, sistem memanggil fungsi:
-  - **`train_xgboost_direct()`**: Membangun algoritma regresi pohon berbasis gradien (*Gradient Boosting Tree*).
-  - **`train_lstm_direct()`**: Membangun Jaringan Saraf Tiruan (*Neural Network*) Sequential menggunakan arsitektur Keras/TensorFlow. Terdiri dari layer LSTM (128 neuron, dropout 0.2) dan dilatih dengan propagasi balik selama 50 *Epochs*.
-  - **`train_hybrid_direct()`**: Model gabungan (*Sequential Stacking*). Memanggil LSTM terlebih dahulu untuk memprediksi tren utama, mengekstrak residual (selisih error dari LSTM), lalu melatih XGBoost secara khusus untuk mengoreksi residual error tersebut.
+- **Fungsi:** `run_all_models_pipeline(train_path, test_path, models_dir)`
+- **Proses:** Menerapkan strategi *Direct Multi-Step Forecasting* secara deterministik (`seed = 42`, `TF_DETERMINISTIC_OPS=1`, `n_jobs=1`) untuk memprediksi harga secara independen pada horizon $h=1, 3, 7$:
+  - **XGBoost Tunggal**: Meratakan jendela masukan menjadi vektor 60 fitur dan melatih `XGBRegressor` dengan optimasi hyperparameter `RandomizedSearchCV` (`n_iter=5`, `cv=3`, `scoring='neg_mean_absolute_error'`).
+  - **LSTM Tunggal**: Membangun jaringan saraf sekuensial Keras/TensorFlow yang terdiri dari 2 layer LSTM (masing-masing 50 unit, `Dropout(0.2)`), `Dense(25)`, dan `Dense(1)`, dilatih dengan optimizer `Adam` (`loss='mean_squared_error'`, `batch_size=32`, `validation_split=0.1`) hingga maksimum 30 *Epochs* menggunakan `EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)`.
+  - **Hybrid LSTM-XGBoost (*Residual-Correction Stacking*)**: Menggunakan model LSTM sebagai *base-learner* untuk memprediksi tren utama, menghitung residu pada data latih ($e_t = y_t - \hat{y}_{\text{LSTM},t}$), lalu melatih `XGBRegressor` (*meta-learner*) melalui `RandomizedSearchCV` untuk memprediksi koreksi residu ($\hat{y}_{\text{Hybrid}} = \hat{y}_{\text{LSTM}} + \hat{e}_{\text{XGBoost}}$).
 
 ## 7. Inverse Transform & Prediksi Aktual (Testing)
 - **File:** `backend/utils/model_utils.py`

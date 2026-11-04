@@ -9,6 +9,13 @@ Digunakan oleh api.py (online prediction) dan train.py (offline training).
 import os
 import random
 
+# Harus diset SEBELUM tensorflow diimpor agar deterministik antar build/run.
+os.environ.setdefault("PYTHONHASHSEED", "42")
+os.environ.setdefault("TF_DETERMINISTIC_OPS", "1")
+os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+
 import numpy as np
 import tensorflow as tf
 import xgboost as xgb
@@ -28,6 +35,13 @@ os.environ["PYTHONHASHSEED"] = str(SEED)
 random.seed(SEED)
 np.random.seed(SEED)
 tf.random.set_seed(SEED)
+try:
+    # Satu thread + op deterministik: hasil identik pada mesin/build berbeda.
+    tf.config.threading.set_inter_op_parallelism_threads(1)
+    tf.config.threading.set_intra_op_parallelism_threads(1)
+    tf.config.experimental.enable_op_determinism()
+except Exception as exc:  # pragma: no cover
+    print(f"Peringatan: gagal mengaktifkan determinisme TensorFlow: {exc}")
 
 WINDOW_SIZE = 30
 FORECAST_HORIZONS = [1, 3, 7]
@@ -126,7 +140,7 @@ def tune_xgboost(X_train, y_train, param_grid, n_iter):
     n_iter = min(n_iter, _grid_size(param_grid))
     cv_folds = min(3, len(X_train))
     search = RandomizedSearchCV(
-        estimator=xgb.XGBRegressor(random_state=SEED),
+        estimator=xgb.XGBRegressor(random_state=SEED, n_jobs=1),
         param_distributions=param_grid,
         n_iter=n_iter,
         cv=cv_folds,

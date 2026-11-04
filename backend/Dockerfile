@@ -1,14 +1,18 @@
-# Base image: lightweight Python 3.10
-FROM python:3.10-slim
+# Base image dikunci ke patch spesifik agar build ulang tidak berubah
+FROM python:3.10.22-slim
 
-ENV PYTHONUNBUFFERED=1
-ENV TF_CPP_MIN_LOG_LEVEL=2
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONHASHSEED=42 \
+    TF_CPP_MIN_LOG_LEVEL=2 \
+    TF_DETERMINISTIC_OPS=1 \
+    TF_ENABLE_ONEDNN_OPTS=0 \
+    OMP_NUM_THREADS=1
 
 WORKDIR /app
 
-# Install dependencies first to leverage Docker layer caching
-COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt
+# Pasang dependensi dari lock file (semua versi terkunci)
+COPY requirements.lock.txt /app/
+RUN pip install --no-cache-dir -r requirements.lock.txt
 
 # Copy application source
 COPY . /app/
